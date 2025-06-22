@@ -1,0 +1,315 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>大模型代理服务管理后台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* A little extra style for transitions */
+        .modal-overlay {
+            transition: opacity 0.2s ease-in-out;
+        }
+        .modal-content {
+            transition: transform 0.2s ease-in-out;
+        }
+        .hidden .modal-overlay {
+            opacity: 0;
+        }
+        .hidden .modal-content {
+            transform: scale(0.95);
+        }
+        .icon-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.25rem;
+            height: 2.25rem;
+            border-radius: 9999px;
+        }
+        .icon-button:hover {
+            background-color: #f3f4f6;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+
+    <div class="p-6 min-h-screen">
+        <header class="flex items-center justify-between pb-4 border-b">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-800">大模型代理服务管理后台</h1>
+                <p class="text-gray-600">集中管理、配置和监控所有接入的大模型。</p>
+            </div>
+            <button id="add-new-model-btn" class="bg-blue-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+                <span class="ml-2">注册新模型</span>
+            </button>
+        </header>
+
+        <main class="mt-6">
+            <div class="p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg mb-6">
+                <div class="flex">
+                    <div class="py-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-yellow-500 mr-3"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                    </div>
+                    <div>
+                        <p class="font-bold">调用逻辑说明</p>
+                        <p class="text-sm text-gray-700">当收到用户请求时，系统会根据“支持功能”筛选出可用模型，并按照“优先级”从小到大的顺序依次尝试调用，直到成功为止。</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+                <table class="w-full text-sm text-left text-gray-500">
+                    <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 w-32">优先级</th>
+                            <th scope="col" class="px-6 py-3">模型名称 / 标识</th>
+                            <th scope="col" class="px-6 py-3">支持功能</th>
+                            <th scope="col" class="px-6 py-3 w-28">状态</th>
+                            <th scope="col" class="px-6 py-3 w-36 text-right">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="model-table-body">
+                        <!-- Rows will be dynamically inserted here by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal for Add/Edit -->
+    <div id="model-modal" class="fixed inset-0 z-50 flex items-center justify-center hidden">
+        <div class="modal-overlay absolute inset-0 bg-black opacity-50"></div>
+        <div class="modal-content bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 p-6 relative">
+            <h2 id="modal-title" class="text-xl font-bold mb-4">注册新模型</h2>
+            <form id="model-form">
+                <input type="hidden" id="model-id-input">
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="name" class="block text-sm font-medium text-gray-700 mb-1">模型名称</label>
+                        <input type="text" id="name" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="例如：OpenAI GPT-4o" required>
+                    </div>
+                    <div>
+                        <label for="modelId" class="block text-sm font-medium text-gray-700 mb-1">模型标识 (Model ID)</label>
+                        <input type="text" id="modelId" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="例如：gpt-4o" required>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label for="apiKey" class="block text-sm font-medium text-gray-700 mb-1">API 密钥</label>
+                    <input type="password" id="apiKey" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="新增时必填，编辑时留空则不更新">
+                </div>
+                 <div class="mb-4">
+                    <label for="priority" class="block text-sm font-medium text-gray-700 mb-1">优先级</label>
+                    <input type="number" id="priority" class="w-full border-gray-300 rounded-md shadow-sm" value="99" min="1" required>
+                    <p class="text-xs text-gray-500 mt-1">数字越小，优先级越高。</p>
+                </div>
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">支持的功能</label>
+                    <div class="grid grid-cols-2 gap-2 p-3 border rounded-md">
+                        <label class="flex items-center"><input type="checkbox" data-capability="text-to-text" class="rounded mr-2"> 文生文</label>
+                        <label class="flex items-center"><input type="checkbox" data-capability="text-to-image" class="rounded mr-2"> 文生图</label>
+                        <label class="flex items-center"><input type="checkbox" data-capability="image-to-text" class="rounded mr-2"> 图生文</label>
+                        <label class="flex items-center"><input type="checkbox" data-capability="image-to-image" class="rounded mr-2"> 图生图</label>
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" id="cancel-btn" class="bg-gray-200 text-gray-800 font-semibold px-4 py-2 rounded-lg hover:bg-gray-300">取消</button>
+                    <button type="submit" class="bg-blue-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700">保存配置</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+    const CAPABILITY_MAP = {
+      'text-to-text': '文生文',
+      'text-to-image': '文生图',
+      'image-to-text': '图生文',
+      'image-to-image': '图生图',
+    };
+
+    let models = [
+      { id: 1, name: 'OpenAI GPT-4o', modelId: 'gpt-4o', priority: 1, capabilities: ['text-to-text', 'image-to-text'], status: 'enabled', apiKey: 'sk-...' },
+      { id: 2, name: 'Anthropic Claude 3 Sonnet', modelId: 'claude-3-sonnet-20240229', priority: 2, capabilities: ['text-to-text'], status: 'enabled', apiKey: 'sk-...' },
+      { id: 3, name: 'OpenAI DALL-E 3', modelId: 'dall-e-3', priority: 1, capabilities: ['text-to-image', 'image-to-image'], status: 'enabled', apiKey: 'sk-...' },
+      { id: 4, name: 'Stable Diffusion XL', modelId: 'stable-diffusion-xl-1024-v1-0', priority: 2, capabilities: ['text-to-image', 'image-to-image'], status: 'disabled', apiKey: 'sk-...' },
+    ];
+
+    const tableBody = document.getElementById('model-table-body');
+    const modal = document.getElementById('model-modal');
+    const form = document.getElementById('model-form');
+    const modalTitle = document.getElementById('modal-title');
+    const addNewBtn = document.getElementById('add-new-model-btn');
+    const cancelBtn = document.getElementById('cancel-btn');
+
+    const renderTable = () => {
+        tableBody.innerHTML = '';
+        const sortedModels = [...models].sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
+        
+        sortedModels.forEach(model => {
+            const capabilitiesHTML = model.capabilities.map(cap => 
+                `<span class="bg-gray-200 text-gray-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded">${CAPABILITY_MAP[cap] || cap}</span>`
+            ).join('');
+
+            const statusToggleHTML = `
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" value="" class="sr-only peer" ${model.status === 'enabled' ? 'checked' : ''} data-id="${model.id}" onchange="handleStatusToggle(this)">
+                  <div class="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-blue-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>`;
+
+            const row = document.createElement('tr');
+            row.className = 'bg-white border-b';
+            row.innerHTML = `
+                <td class="px-6 py-4 font-medium text-gray-900">
+                    <div class="flex items-center gap-2">
+                        <span>${model.priority}</span>
+                        <div class="flex flex-col">
+                            <svg onclick="handleChangePriority(${model.id}, 'up')" class="h-4 w-4 text-gray-400 hover:text-gray-800 cursor-pointer" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.707-10.293a1 1 0 00-1.414-1.414l-3 3a1 1 0 001.414 1.414L10 9.414l2.293 2.293a1 1 0 001.414-1.414l-3-3z" clip-rule="evenodd" transform="rotate(180 10 10)" /></svg>
+                            <svg onclick="handleChangePriority(${model.id}, 'down')" class="h-4 w-4 text-gray-400 hover:text-gray-800 cursor-pointer" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 2a8 8 0 100 16 8 8 0 000-16zM9.293 9.707a1 1 0 011.414 0L13 12.001a1 1 0 01-1.414 1.414L10 10.828 7.707 13.121a1 1 0 01-1.414-1.414l3-3z" clip-rule="evenodd" /></svg>
+                        </div>
+                    </div>
+                </td>
+                <td class="px-6 py-4">
+                    <div class="font-semibold text-gray-800">${model.name}</div>
+                    <div class="text-xs text-gray-500">${model.modelId}</div>
+                </td>
+                <td class="px-6 py-4">${capabilitiesHTML}</td>
+                <td class="px-6 py-4">${statusToggleHTML}</td>
+                <td class="px-6 py-4 text-right">
+                    <button onclick="handleEdit(${model.id})" class="font-medium text-blue-600 hover:underline p-1">编辑</button>
+                    <button onclick="handleDelete(${model.id})" class="font-medium text-red-600 hover:underline p-1 ml-2">删除</button>
+                </td>
+            `;
+            tableBody.appendChild(row);
+        });
+    };
+    
+    const showModal = (model = null) => {
+        form.reset();
+        document.querySelectorAll('[data-capability]').forEach(cb => cb.checked = false);
+        
+        if (model) {
+            modalTitle.textContent = '编辑模型配置';
+            document.getElementById('model-id-input').value = model.id;
+            document.getElementById('name').value = model.name;
+            document.getElementById('modelId').value = model.modelId;
+            document.getElementById('priority').value = model.priority;
+            document.getElementById('apiKey').placeholder = "留空则不更新";
+            model.capabilities.forEach(cap => {
+                const checkbox = document.querySelector(`[data-capability="${cap}"]`);
+                if (checkbox) checkbox.checked = true;
+            });
+        } else {
+            modalTitle.textContent = '注册新模型';
+            document.getElementById('model-id-input').value = '';
+            document.getElementById('apiKey').placeholder = "输入API Key";
+        }
+        modal.classList.remove('hidden');
+    };
+
+    const hideModal = () => {
+        modal.classList.add('hidden');
+    };
+
+    form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        
+        const id = document.getElementById('model-id-input').value;
+        const capabilities = [];
+        document.querySelectorAll('[data-capability]:checked').forEach(cb => {
+            capabilities.push(cb.dataset.capability);
+        });
+        
+        const modelData = {
+            name: document.getElementById('name').value,
+            modelId: document.getElementById('modelId').value,
+            priority: parseInt(document.getElementById('priority').value, 10),
+            apiKey: document.getElementById('apiKey').value,
+            capabilities: capabilities,
+            status: 'enabled'
+        };
+
+        if (id) { // Editing existing model
+            const modelIndex = models.findIndex(m => m.id == id);
+            if (modelIndex > -1) {
+                const existingModel = models[modelIndex];
+                models[modelIndex] = {
+                    ...existingModel,
+                    ...modelData,
+                    apiKey: modelData.apiKey ? modelData.apiKey : existingModel.apiKey // Don't overwrite key if empty
+                };
+            }
+        } else { // Adding new model
+            modelData.id = Date.now(); // Simple unique ID
+            if (!modelData.apiKey) {
+                alert("API密钥是必填项。");
+                return;
+            }
+            models.push(modelData);
+        }
+        
+        hideModal();
+        renderTable();
+    });
+
+    window.handleEdit = (id) => {
+        const model = models.find(m => m.id === id);
+        showModal(model);
+    };
+
+    window.handleDelete = (id) => {
+        if (confirm('确定要删除这个模型吗？此操作不可撤销。')) {
+            models = models.filter(m => m.id !== id);
+            renderTable();
+        }
+    };
+    
+    window.handleStatusToggle = (checkbox) => {
+        const id = checkbox.dataset.id;
+        const model = models.find(m => m.id == id);
+        if (model) {
+            model.status = checkbox.checked ? 'enabled' : 'disabled';
+        }
+        // No full re-render needed for a simple toggle, but it's safer
+        renderTable();
+    };
+
+    window.handleChangePriority = (id, direction) => {
+        const model = models.find(m => m.id === id);
+        if (!model) return;
+        
+        const oldPriority = model.priority;
+        const newPriority = direction === 'up' ? oldPriority - 1 : oldPriority + 1;
+
+        if (newPriority < 1) return;
+
+        // Find model to swap with
+        const swapModel = models.find(m => m.priority === newPriority);
+
+        model.priority = newPriority;
+        if(swapModel) {
+            swapModel.priority = oldPriority;
+        }
+        
+        renderTable();
+    };
+
+    addNewBtn.addEventListener('click', () => showModal());
+    cancelBtn.addEventListener('click', hideModal);
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            hideModal();
+        }
+    });
+
+    // Initial render
+    renderTable();
+});
+</script>
+
+</body>
+</html>

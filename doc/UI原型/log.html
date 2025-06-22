@@ -1,0 +1,80 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理员登录</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+
+    <div class="w-full max-w-md bg-white rounded-xl shadow-lg p-8 space-y-6">
+        <div>
+            <h1 class="text-center text-2xl font-bold text-gray-800">大模型代理服务</h1>
+            <h2 class="mt-2 text-center text-lg font-semibold text-gray-700">管理员登录</h2>
+            <p class="mt-1 text-center text-sm text-gray-500">欢迎回来，请输入您的凭证</p>
+        </div>
+        
+        <form id="login-form" class="space-y-6">
+            <div>
+                <label for="username" class="block text-sm font-medium text-gray-700">用户名</label>
+                <div class="mt-1">
+                    <input id="username" name="username" type="text" required
+                           class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </div>
+            </div>
+
+            <div>
+                <label for="password" class="block text-sm font-medium text-gray-700">密码</label>
+                <div class="mt-1">
+                    <input id="password" name="password" type="password" required
+                           class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </div>
+            </div>
+            
+            <div id="error-message" class="hidden text-center text-sm text-red-600">
+                <!-- Error message will be inserted here -->
+            </div>
+
+            <div>
+                <button type="submit"
+                        class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    登 录
+                </button>
+            </div>
+        </form>
+    </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const loginForm = document.getElementById('login-form');
+        const errorMessage = document.getElementById('error-message');
+
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault(); // 阻止表单的默认提交行为
+
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            // --- 模拟登录验证 ---
+            // 在实际应用中，这里会发送一个请求到后端服务器进行验证
+            // 为了演示，我们硬编码一个正确的用户名和密码
+            if (username === 'admin' && password === 'password') {
+                errorMessage.classList.add('hidden'); // 隐藏错误信息
+                alert('登录成功！正在跳转到管理后台...');
+                
+                // 跳转到管理后台页面
+                // 请确保管理后台文件名为 "admin.html" 且在同一目录下
+                window.location.href = 'index.html';
+            } else {
+                // 显示错误提示
+                errorMessage.textContent = '用户名或密码错误，请重试。';
+                errorMessage.classList.remove('hidden');
+            }
+        });
+    });
+</script>
+
+</body>
+</html>
