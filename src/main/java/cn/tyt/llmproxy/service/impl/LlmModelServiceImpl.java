@@ -205,7 +205,6 @@ public class LlmModelServiceImpl implements ILlmModelService {
         if (model == null) return null;
         ModelResponse response = new ModelResponse();
         BeanUtils.copyProperties(model, response);
-        // response.setApiKey(null); // 确保不返回 API Key
         return response;
     }
 }

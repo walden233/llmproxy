@@ -45,23 +45,23 @@ public class ModelControllerTests extends BaseTest {
 
     @BeforeEach
     void loginAndGetToken() throws Exception {
-        // 确保测试用户存在并登录以获取 token
+        // 确保测试用户存在以获取 token
         String username = "test";
         String password = "password";
         String email = username + "@example.com";
 
-        // 清理可能存在的同名用户
-        adminMapper.delete(new QueryWrapper<cn.tyt.llmproxy.entity.Admin>().eq("username", username));
-
-
-        AdminRegisterRequest registerRequest = new AdminRegisterRequest();
-        registerRequest.setUsername(username);
-        registerRequest.setPassword(password);
-        registerRequest.setEmail(email);
-        mockMvc.perform(post("/v1/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(registerRequest)))
-                .andExpect(status().isOk());
+//        // 清理可能存在的同名用户
+//        adminMapper.delete(new QueryWrapper<cn.tyt.llmproxy.entity.Admin>().eq("username", username));
+//
+//
+//        AdminRegisterRequest registerRequest = new AdminRegisterRequest();
+//        registerRequest.setUsername(username);
+//        registerRequest.setPassword(password);
+//        registerRequest.setEmail(email);
+//        mockMvc.perform(post("/v1/auth/register")
+//                        .contentType(MediaType.APPLICATION_JSON)
+//                        .content(objectMapper.writeValueAsString(registerRequest)))
+//                .andExpect(status().isOk());
 
         AdminLoginRequest loginRequest = new AdminLoginRequest();
         loginRequest.setUsername(username);
@@ -88,6 +88,40 @@ public class ModelControllerTests extends BaseTest {
         createRequest.setPriority(10);
         return createRequest;
     }
+//    @Test
+//    @Rollback(value = false)
+//    void CreateModel() throws Exception {
+//
+//        ModelCreateRequest createRequest = new ModelCreateRequest();
+//        createRequest.setDisplayName("deepseek-v3");
+//        createRequest.setApiKey("sk-6bf312e5ab8f4c099439ba1a1080da8e");
+//        createRequest.setModelIdentifier("deepseek-chat");
+//        createRequest.setUrlBase("https://api.deepseek.com/v1");
+//        createRequest.setCapabilities(Arrays.asList("text-to-text"));
+//        createRequest.setPriority(5);
+//
+//        MvcResult result = mockMvc.perform(post("/v1/models")
+//                        .header(HttpHeaders.AUTHORIZATION, authToken)
+//                        .contentType(MediaType.APPLICATION_JSON)
+//                        .content(objectMapper.writeValueAsString(createRequest)))
+//                .andExpect(status().isOk())
+//                .andExpect(jsonPath("$.code").value(200))
+//                .andExpect(jsonPath("$.data.displayName").value(createRequest.getDisplayName()))
+//                .andExpect(jsonPath("$.data.modelIdentifier").value(createRequest.getModelIdentifier()))
+//                .andExpect(jsonPath("$.data.status").value(1)) // 默认上线
+//                .andReturn();
+//
+//        String responseString = result.getResponse().getContentAsString();
+//        Result<ModelResponse> createdModelResult = objectMapper.readValue(responseString, new TypeReference<Result<ModelResponse>>() {});
+//        Integer modelId = createdModelResult.getData().getId();
+//
+//        // 验证数据库
+//        LlmModel savedModel = llmModelMapper.selectById(modelId);
+//        assertThat(savedModel).isNotNull();
+//        assertThat(savedModel.getDisplayName()).isEqualTo(createRequest.getDisplayName());
+//        assertThat(savedModel.getApiKey()).isEqualTo(createRequest.getApiKey()); // 确认API Key已存储
+//        assertThat(savedModel.getCapabilities()).containsExactlyInAnyOrderElementsOf(createRequest.getCapabilities());
+//    }
 
     @Test
 //    @Rollback(value = false)
