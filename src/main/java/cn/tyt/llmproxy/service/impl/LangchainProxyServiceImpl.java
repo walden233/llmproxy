@@ -11,10 +11,7 @@ import cn.tyt.llmproxy.mapper.LlmModelMapper;
 import cn.tyt.llmproxy.service.ILangchainProxyService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import dev.langchain4j.data.image.Image;
-import dev.langchain4j.data.message.AiMessage;
-import dev.langchain4j.data.message.ChatMessage;
-import dev.langchain4j.data.message.SystemMessage;
-import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.data.message.*;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 //import dev.langchain4j.model.chat.ChatLanguageModel;
@@ -31,11 +28,9 @@ import org.springframework.util.StringUtils;
 
 
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 @Service
 public class LangchainProxyServiceImpl implements ILangchainProxyService {
@@ -45,15 +40,23 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
     @Autowired
     private LlmModelMapper llmModelMapper;
 
-    // 简单内存会话存储，生产环境可能需要 Redis 或其他持久化存储
-    private final Map<String, ChatMemory> chatMemories = new ConcurrentHashMap<>();
+//    // 简单内存会话存储，生产环境可能需要 Redis 或其他持久化存储
+//    private final Map<String, ChatMemory> chatMemories = new ConcurrentHashMap<>();
 
     @Override
     public ChatResponse_dto chat(ChatRequest_dto request) {
-        LlmModel selectedModel = selectModel(request.getModelInternalId(), request.getModelIdentifier(), ModelCapabilityEnum.TEXT_TO_TEXT.getValue());
-        log.info("使用模型进行聊天: {} (ID: {})", selectedModel.getDisplayName(), selectedModel.getModelIdentifier());
+        if(request.getImages()==null && request.getUserMessage()==null){
+            throw new IllegalArgumentException("请求中必须包含图片或用户消息");
+        }
 
-        OpenAiChatModel chatModel = buildChatLanguageModel(selectedModel);
+        // 如果有图片，需要 'image-to-text' 能力；否则 'text-to-text'
+        final String requiredCapability = (request.getImages() != null && !request.getImages().isEmpty())
+                ? ModelCapabilityEnum.IMAGE_TO_TEXT.getValue()
+                : ModelCapabilityEnum.TEXT_TO_TEXT.getValue();
+        LlmModel selectedModel = selectModel(request.getModelInternalId(), request.getModelIdentifier(), requiredCapability);
+        log.info("使用模型进行聊天: {} (ID: {}), 所需能力: {}", selectedModel.getDisplayName(), selectedModel.getModelIdentifier(), requiredCapability);
+
+        OpenAiChatModel chatModel = buildChatLanguageModel(selectedModel, request.getOptions());
 
         List<ChatMessage> messages = new ArrayList<>();
         // 添加系统消息 (如果需要)
@@ -70,33 +73,56 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
                     } else if ("assistant".equalsIgnoreCase(parts[0].trim()) || "ai".equalsIgnoreCase(parts[0].trim())) {
                         messages.add(AiMessage.from(parts[1].trim()));
                     }
+                    else if("system".equalsIgnoreCase(parts[0].trim())){
+                        messages.add(SystemMessage.from(parts[1].trim()));
+                    }
                 }
             }
         }
-        messages.add(UserMessage.from(request.getUserMessage()));
 
+        List<Content> contents=new ArrayList<>();
+        //构建当前用户的消息
+        UserMessage currentUserMessage;
+        if (request.getImages() != null && !request.getImages().isEmpty()) {
+            // 多模态消息：包含文本和图片
+            // 将 DTO 中的 ImageInput 转换为 langchain4j 的 Image 对象，然后转为ImageContent
+            request.getImages().stream()
+                    .map(imgInput -> {
+                        if (StringUtils.hasText(imgInput.getBase64())) {
+                            // 假设 base64 字符串不包含 "data:image/jpeg;base64," 前缀
+                            // 如果包含，需要先去除
+                            return new ImageContent(Image.builder()
+                                    .base64Data(imgInput.getBase64())
+                                    .mimeType(detectMimeType(imgInput.getBase64())) // 可选但推荐，或让模型自动识别
+                                    .build());
+                        } else if (StringUtils.hasText(imgInput.getUrl())) {
+                            return new ImageContent(Image.builder().url(imgInput.getUrl()).build());
+                        }
+                        return null;
+                    })
+                    .filter(Objects::nonNull)
+                    .forEach(contents::add);
 
-        ChatResponse response;
-        String sessionId = StringUtils.hasText(request.getSessionId()) ? request.getSessionId() : null;
+            // 如果用户消息为空，也需要处理，只发送图片
+            String userText = request.getUserMessage() == null ? "" : request.getUserMessage();
+            contents.add(new TextContent(userText));
+            currentUserMessage = UserMessage.from(contents);
 
-        if (sessionId != null) {
-            ChatMemory chatMemory = chatMemories.computeIfAbsent(sessionId, id ->
-                    MessageWindowChatMemory.withMaxMessages(10)); // 保留最近10条消息
-            // 先加载历史消息到当前 messages 列表，再一起发送给模型
-            messages.addAll(0, chatMemory.messages()); // 将记忆消息加到最前面
-            chatMemory.add(UserMessage.from(request.getUserMessage())); // 将当前用户消息加入记忆
-            response = chatModel.chat(chatMemory.messages()); // 使用记忆中的消息进行生成
-            chatMemory.add(response.aiMessage()); // 将AI回复加入记忆
         } else {
-            response = chatModel.chat(messages);
+            // 纯文本消息
+            currentUserMessage = UserMessage.from(request.getUserMessage());
         }
+        messages.add(currentUserMessage);
 
+
+        // 调用第三方大模型
+        ChatResponse response = chatModel.chat(messages);
 
         if (response == null || response.aiMessage() == null) {
             throw new RuntimeException("模型未能生成响应。");
         }
 
-        return new ChatResponse_dto(response.aiMessage().text(), selectedModel.getModelIdentifier(), sessionId);
+        return new ChatResponse_dto(response.aiMessage().text(), selectedModel.getModelIdentifier());
     }
 
 
@@ -160,25 +186,56 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
         }
     }
 
-    private OpenAiChatModel buildChatLanguageModel(LlmModel modelConfig) {
+    /**
+     * (辅助方法) 简单地从 Base64 字符串中检测 MIME 类型。
+     * 实际应用中可能需要更可靠的库或方法。
+     * @param base64Data Base64 编码的图片数据
+     * @return 图片的 MIME 类型，如 "image/png", "image/jpeg"
+     */
+    private String detectMimeType(String base64Data) {
+        // 这是一个非常简化的实现，仅用于示例
+        // 真实场景下，前端最好能直接提供 mimeType
+        // 或者后端使用更复杂的库来检测
+        if (base64Data.startsWith("/9j/")) {
+            return "image/jpeg";
+        } else if (base64Data.startsWith("iVBORw0KGgo=")) {
+            return "image/png";
+        } else if (base64Data.startsWith("R0lGODdh")) {
+            return "image/gif";
+        }
+        // 默认或未知
+        return "application/octet-stream";
+    }
 
-//        if (modelConfig.getModelIdentifier().startsWith("gpt-") ||
-//                modelConfig.getModelIdentifier().contains("openai")) { // 简陋的判断
-        if(true){
-            OpenAiChatModel.OpenAiChatModelBuilder builder = OpenAiChatModel.builder()
-                    .apiKey(modelConfig.getApiKey())
-                    .modelName(modelConfig.getModelIdentifier())
-                    .timeout(Duration.ofSeconds(60)); // 设置超时
+    private OpenAiChatModel buildChatLanguageModel(LlmModel modelConfig, Map<String, Object> options) {
 
-            if (StringUtils.hasText(modelConfig.getUrlBase()) && !modelConfig.getUrlBase().contains("api.openai.com")) {
-                builder.baseUrl(modelConfig.getUrlBase()); // 支持自定义 OpenAI 兼容的 Base URL
+        // 目前只支持 OpenAI 兼容的模型，未来可以在这里扩展
+        // if (isClaudeModel(modelConfig.getModelIdentifier())) { ... }
+
+        OpenAiChatModel.OpenAiChatModelBuilder builder = OpenAiChatModel.builder()
+                .apiKey(modelConfig.getApiKey())
+                .modelName(modelConfig.getModelIdentifier())
+                .timeout(Duration.ofSeconds(120)); // 超时时间
+
+        // 支持自定义 OpenAI 兼容的 Base URL
+        if (StringUtils.hasText(modelConfig.getUrlBase()) && !modelConfig.getUrlBase().contains("api.openai.com")) {
+            builder.baseUrl(modelConfig.getUrlBase());
+        }
+
+        // 从 ChatRequest.options 中读取并设置模型参数
+        if (options != null && !options.isEmpty()) {
+            if (options.containsKey("temperature")) {
+                builder.temperature(((Number) options.get("temperature")).doubleValue());
             }
-            // 可以从 ChatRequest.options 中读取 temperature, maxTokens 等参数设置给 builder
-            return builder.build();
+            if (options.containsKey("maxTokens")) {
+                builder.maxTokens(((Number) options.get("maxTokens")).intValue());
+            }
+            if (options.containsKey("topP")) {
+                builder.topP(((Number) options.get("topP")).doubleValue());
+            }
         }
-        else {
-            throw new UnsupportedOperationException("不支持的模型提供商: " + modelConfig.getModelIdentifier());
-        }
+
+        return builder.build();
     }
 
 

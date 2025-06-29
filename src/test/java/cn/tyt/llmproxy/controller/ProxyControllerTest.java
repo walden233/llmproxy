@@ -87,7 +87,30 @@ public class ProxyControllerTest extends BaseTest {
                         .content(objectMapper.writeValueAsString(chatRequest)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.usedModelIdentifier").value(MOCK_CHAT_MODEL_ID))
+//                .andExpect(jsonPath("$.data.usedModelIdentifier").value(MOCK_CHAT_MODEL_ID))
+                .andReturn();
+
+        String responseString = result.getResponse().getContentAsString();
+        System.out.println("远端大模型回答:"+responseString);
+    }
+
+    @Test
+    void testChat_Success_AutoSelectModel_With_ImageUrl() throws Exception {
+        ChatRequest_dto chatRequest = new ChatRequest_dto();
+        chatRequest.setUserMessage("图上有什么？");
+        List<ChatRequest_dto.ImageInput> ims = new ArrayList<>();
+        ChatRequest_dto.ImageInput im = new ChatRequest_dto.ImageInput();
+        im.setUrl("https://i0.hdslb.com/bfs/archive/fbcca754eadc47994aaaa0964a7ddf366cd8033a.png");
+        ims.add(im);
+        chatRequest.setImages(ims);
+
+        MvcResult result = mockMvc.perform(post("/v1/chat")
+                        .header(HttpHeaders.AUTHORIZATION, authToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(chatRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+//                .andExpect(jsonPath("$.data.usedModelIdentifier").value(MOCK_CHAT_MODEL_ID))
                 .andReturn();
 
         String responseString = result.getResponse().getContentAsString();

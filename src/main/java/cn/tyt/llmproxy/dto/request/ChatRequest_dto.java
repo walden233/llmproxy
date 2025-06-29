@@ -8,7 +8,7 @@ import java.util.Map;
 @Data
 public class ChatRequest_dto {
 
-    @NotBlank(message = "用户消息不能为空")
+//    @NotBlank(message = "用户消息不能为空")
     private String userMessage;
 
     // 可选：指定使用哪个模型 (数据库中的模型ID或标识符)
@@ -21,9 +21,23 @@ public class ChatRequest_dto {
     private List<String> history; // 例如: ["user: hello", "assistant: hi", "user: how are you?"]
 
     // 可选：传递给模型的额外参数 (如 temperature, maxTokens)
-    // 具体参数取决于模型提供商和 Langchain4j 的实现
     private Map<String, Object> options;
 
-    // 可选：会话ID，用于有状态的对话 (ChatMemory)
-    private String sessionId;
+    // 支持图片输入
+    private List<ImageInput> images;
+
+    @Data
+    public static class ImageInput {
+        /**
+         * 图片内容的 Base64 编码，或者是图片的 URL（建议二选一）
+         */
+        private String base64; // 若前端以 base64 上传
+        private String url;    // 若前端已上传至文件服务，可用 URL 引用
+
+        /**
+         * 可选：图片的描述或用途（如 OCR, 图像对话等）
+         */
+        private String role; // e.g., "user_upload", "prompt_image", "reference"
+    }
+
 }
