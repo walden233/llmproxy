@@ -95,6 +95,7 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
                                     .base64Data(imgInput.getBase64())
                                     .mimeType(detectMimeType(imgInput.getBase64())) // 可选但推荐，或让模型自动识别
                                     .build());
+                            //return new ImageContent(Image.builder().url(imgInput.getBase64()).build());
                         } else if (StringUtils.hasText(imgInput.getUrl())) {
                             return new ImageContent(Image.builder().url(imgInput.getUrl()).build());
                         }
