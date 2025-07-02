@@ -2,6 +2,8 @@ package cn.tyt.llmproxy.controller;
 
 import cn.tyt.llmproxy.dto.request.AdminLoginRequest;
 import cn.tyt.llmproxy.dto.request.ChatRequest_dto;
+import cn.tyt.llmproxy.dto.request.ImageGenerationRequest;
+import cn.tyt.llmproxy.dto.request.ImageInput;
 import cn.tyt.llmproxy.dto.response.AdminLoginResponse;
 import cn.tyt.llmproxy.mapper.AdminMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -70,6 +72,7 @@ public class ProxyControllerTest extends BaseTest {
         String responseString = result.getResponse().getContentAsString();
         System.out.println("远端大模型回答:"+responseString);
     }
+
     @Test
     void testChat_Success_AutoSelectModel() throws Exception {
         ChatRequest_dto chatRequest = new ChatRequest_dto();
@@ -98,8 +101,8 @@ public class ProxyControllerTest extends BaseTest {
     void testChat_Success_AutoSelectModel_With_ImageUrl() throws Exception {
         ChatRequest_dto chatRequest = new ChatRequest_dto();
         chatRequest.setUserMessage("图上有什么？");
-        List<ChatRequest_dto.ImageInput> ims = new ArrayList<>();
-        ChatRequest_dto.ImageInput im = new ChatRequest_dto.ImageInput();
+        List<ImageInput> ims = new ArrayList<>();
+        ImageInput im = new ImageInput();
         im.setUrl("https://i0.hdslb.com/bfs/archive/fbcca754eadc47994aaaa0964a7ddf366cd8033a.png");
         ims.add(im);
         chatRequest.setImages(ims);
@@ -116,4 +119,24 @@ public class ProxyControllerTest extends BaseTest {
         String responseString = result.getResponse().getContentAsString();
         System.out.println("远端大模型回答:"+responseString);
     }
+
+    @Test
+    void test_GenerateImg_Success() throws Exception {
+        ImageGenerationRequest request = new ImageGenerationRequest();
+        request.setPrompt("画个动漫人物");
+//        request.setSize("1024*1024");
+//        request.setModelInternalId("wanx2.1-t2i-turbo");
+
+        MvcResult result = mockMvc.perform(post("/v1/generate-image")
+                        .header(HttpHeaders.AUTHORIZATION, authToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andReturn();
+
+        String responseString = result.getResponse().getContentAsString();
+        System.out.println("远端大模型回答:"+responseString);
+    }
 }
+

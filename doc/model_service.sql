@@ -12,7 +12,7 @@ CREATE TABLE llm_models (
     id INT AUTO_INCREMENT PRIMARY KEY,
     display_name VARCHAR(100) NOT NULL COMMENT 'User-friendly name shown in UI',
     model_identifier VARCHAR(100) NOT NULL UNIQUE COMMENT 'Actual model ID for API calls (e.g., gpt-4o)',
-    url_base VARCHAR(255) NOT NULL COMMENT 'Base URL for the model API endpoint',
+    url_base VARCHAR(255) COMMENT 'Base URL for the model API endpoint',
     api_key VARCHAR(255) NOT NULL COMMENT 'API key for accessing the model. Consider encrypting at rest.',
     capabilities JSON NOT NULL COMMENT 'JSON array of supported features, e.g., ["text-to-text"]',
     priority INT NOT NULL DEFAULT 99 COMMENT 'Lower number means higher priority',

@@ -15,7 +15,6 @@ public class ModelCreateRequest {
     @NotBlank(message = "模型标识不能为空")
     private String modelIdentifier;
 
-    @NotBlank(message = "模型URL Base不能为空")
     private String urlBase;
 
     @NotBlank(message = "API Key不能为空")

@@ -2,6 +2,7 @@ package cn.tyt.llmproxy.service.impl;
 
 import cn.tyt.llmproxy.common.enums.ModelCapabilityEnum;
 import cn.tyt.llmproxy.common.enums.StatusEnum;
+import cn.tyt.llmproxy.common.utils.ImgGeneration;
 import cn.tyt.llmproxy.dto.request.ChatRequest_dto;
 import cn.tyt.llmproxy.dto.request.ImageGenerationRequest;
 import cn.tyt.llmproxy.dto.response.ChatResponse_dto;
@@ -9,6 +10,9 @@ import cn.tyt.llmproxy.dto.response.ImageGenerationResponse;
 import cn.tyt.llmproxy.entity.LlmModel;
 import cn.tyt.llmproxy.mapper.LlmModelMapper;
 import cn.tyt.llmproxy.service.ILangchainProxyService;
+import com.alibaba.dashscope.aigc.imagesynthesis.ImageSynthesisResult;
+import com.alibaba.dashscope.exception.ApiException;
+import com.alibaba.dashscope.exception.NoApiKeyException;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import dev.langchain4j.data.image.Image;
 import dev.langchain4j.data.message.*;
@@ -132,18 +136,15 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
     public ImageGenerationResponse generateImage(ImageGenerationRequest request) {
         LlmModel selectedModel = selectModel(request.getModelInternalId(), request.getModelIdentifier(), ModelCapabilityEnum.TEXT_TO_IMAGE.getValue());
         log.info("使用模型生成图像: {} (ID: {})", selectedModel.getDisplayName(), selectedModel.getModelIdentifier());
-
-        ImageModel imageModel = buildImageModel(selectedModel, request);
-
-        Response<Image> response = imageModel.generate(request.getPrompt());
-
-        if (response == null || response.content() == null || response.content().url() == null) {
-            throw new RuntimeException("模型未能生成图像或图像URL。");
+        ImageSynthesisResult result;
+        try {
+            result = ImgGeneration.basicCall(request.getPrompt(), selectedModel.getApiKey(), selectedModel.getModelIdentifier(), request.getSize());
+        } catch (ApiException | NoApiKeyException e) {
+            throw new RuntimeException(e.getMessage());
         }
-
         return new ImageGenerationResponse(
-                response.content().url().toString(),
-                response.content().revisedPrompt(), // DALL-E 可能会返回修改后的 prompt
+                result.getOutput().getResults().get(0).get("url"),
+                result.getOutput().getResults().get(0).get("actual_prompt"),
                 selectedModel.getModelIdentifier()
         );
     }
@@ -240,33 +241,33 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
     }
 
 
-    private ImageModel buildImageModel(LlmModel modelConfig, ImageGenerationRequest imageRequest) {
-        if (modelConfig.getModelIdentifier().startsWith("dall-e-") ||
-                modelConfig.getModelIdentifier().contains("openai")) { // 简陋的判断
-            OpenAiImageModel.OpenAiImageModelBuilder builder = OpenAiImageModel.builder()
-                    .apiKey(modelConfig.getApiKey())
-                    .modelName(modelConfig.getModelIdentifier()) // e.g., "dall-e-3" or "dall-e-2"
-                    .timeout(Duration.ofSeconds(120));
-
-            if (StringUtils.hasText(modelConfig.getUrlBase()) && !modelConfig.getUrlBase().contains("api.openai.com")) {
-                builder.baseUrl(modelConfig.getUrlBase());
-            }
-            if (StringUtils.hasText(imageRequest.getSize())) {
-                builder.size(imageRequest.getSize());
-            }
-            if (StringUtils.hasText(imageRequest.getQuality())) {
-                builder.quality(imageRequest.getQuality());
-            }
-            if (StringUtils.hasText(imageRequest.getStyle())) {
-                builder.style(imageRequest.getStyle());
-            }
-            // builder.responseFormat("url"); // 或 "b64_json"
-            // builder.user("user-id-from-request"); // 可选
-
-            return builder.build();
-        }
-        else {
-            throw new UnsupportedOperationException("不支持的图像模型提供商: " + modelConfig.getModelIdentifier());
-        }
-    }
+//    private ImageModel buildImageModel(LlmModel modelConfig, ImageGenerationRequest imageRequest) {
+//        if (modelConfig.getModelIdentifier().startsWith("dall-e-") ||
+//                modelConfig.getModelIdentifier().contains("openai")) { // 简陋的判断
+//            OpenAiImageModel.OpenAiImageModelBuilder builder = OpenAiImageModel.builder()
+//                    .apiKey(modelConfig.getApiKey())
+//                    .modelName(modelConfig.getModelIdentifier()) // e.g., "dall-e-3" or "dall-e-2"
+//                    .timeout(Duration.ofSeconds(120));
+//
+//            if (StringUtils.hasText(modelConfig.getUrlBase()) && !modelConfig.getUrlBase().contains("api.openai.com")) {
+//                builder.baseUrl(modelConfig.getUrlBase());
+//            }
+//            if (StringUtils.hasText(imageRequest.getSize())) {
+//                builder.size(imageRequest.getSize());
+//            }
+//            if (StringUtils.hasText(imageRequest.getQuality())) {
+//                builder.quality(imageRequest.getQuality());
+//            }
+//            if (StringUtils.hasText(imageRequest.getStyle())) {
+//                builder.style(imageRequest.getStyle());
+//            }
+//            // builder.responseFormat("url"); // 或 "b64_json"
+//            // builder.user("user-id-from-request"); // 可选
+//
+//            return builder.build();
+//        }
+//        else {
+//            throw new UnsupportedOperationException("不支持的图像模型提供商: " + modelConfig.getModelIdentifier());
+//        }
+//    }
 }

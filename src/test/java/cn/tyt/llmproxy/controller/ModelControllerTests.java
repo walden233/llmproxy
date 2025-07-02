@@ -88,40 +88,25 @@ public class ModelControllerTests extends BaseTest {
         createRequest.setPriority(10);
         return createRequest;
     }
-    @Test
-    @Rollback(value = false)
-    void CreateModel() throws Exception {
-
-        ModelCreateRequest createRequest = new ModelCreateRequest();
-        createRequest.setDisplayName("GLM-4V");
-        createRequest.setApiKey("58355463efa249c1a1f85d17315dc094.b645T7wfP26jGI2B");
-        createRequest.setModelIdentifier("glm-4v-plus-0111");
-        createRequest.setUrlBase("https://open.bigmodel.cn/api/paas/v4");
-        createRequest.setCapabilities(Arrays.asList("text-to-text","image-to-text"));
-        createRequest.setPriority(5);
-
-        MvcResult result = mockMvc.perform(post("/v1/models")
-                        .header(HttpHeaders.AUTHORIZATION, authToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(createRequest)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.displayName").value(createRequest.getDisplayName()))
-                .andExpect(jsonPath("$.data.modelIdentifier").value(createRequest.getModelIdentifier()))
-                .andExpect(jsonPath("$.data.status").value(1)) // 默认上线
-                .andReturn();
-
-        String responseString = result.getResponse().getContentAsString();
-        Result<ModelResponse> createdModelResult = objectMapper.readValue(responseString, new TypeReference<Result<ModelResponse>>() {});
-        Integer modelId = createdModelResult.getData().getId();
-
-        // 验证数据库
-        LlmModel savedModel = llmModelMapper.selectById(modelId);
-        assertThat(savedModel).isNotNull();
-        assertThat(savedModel.getDisplayName()).isEqualTo(createRequest.getDisplayName());
-        assertThat(savedModel.getApiKey()).isEqualTo(createRequest.getApiKey()); // 确认API Key已存储
-        assertThat(savedModel.getCapabilities()).containsExactlyInAnyOrderElementsOf(createRequest.getCapabilities());
-    }
+//    @Test
+//    @Rollback(value = false)
+//    void CreateModel() throws Exception {
+//
+//        ModelCreateRequest createRequest = new ModelCreateRequest();
+//        createRequest.setDisplayName("ALI-WanX");
+//        createRequest.setApiKey("sk-2a8a028420b946b4b4bbbce178e554cf");
+//        createRequest.setModelIdentifier("wanx2.1-t2i-turbo");
+//        createRequest.setCapabilities(Arrays.asList("text-to-image"));
+//        createRequest.setPriority(3);
+//
+//        mockMvc.perform(post("/v1/models")
+//                        .header(HttpHeaders.AUTHORIZATION, authToken)
+//                        .contentType(MediaType.APPLICATION_JSON)
+//                        .content(objectMapper.writeValueAsString(createRequest)))
+//                .andExpect(status().isOk())
+//                .andExpect(jsonPath("$.code").value(200))
+//                .andReturn();
+//    }
 
     @Test
 //    @Rollback(value = false)

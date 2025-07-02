@@ -130,5 +130,20 @@ public class InitDB extends BaseTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andReturn();
+
+        createRequest.setDisplayName("ALI-WanX");
+        createRequest.setApiKey("sk-2a8a028420b946b4b4bbbce178e554cf");
+        createRequest.setModelIdentifier("wanx2.1-t2i-turbo");
+        createRequest.setUrlBase(null);
+        createRequest.setCapabilities(Arrays.asList("text-to-image"));
+        createRequest.setPriority(3);
+
+        result2 = mockMvc.perform(post("/v1/models")
+                        .header(HttpHeaders.AUTHORIZATION, authToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andReturn();
     }
 }
