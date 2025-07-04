@@ -9,9 +9,13 @@ import com.alibaba.dashscope.aigc.imagesynthesis.ImageSynthesisResult;
 import com.alibaba.dashscope.task.AsyncTaskListParam;
 import com.alibaba.dashscope.exception.ApiException;
 import com.alibaba.dashscope.exception.NoApiKeyException;
+import com.alibaba.dashscope.utils.JsonUtils;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class ImgGeneration {
-    public static ImageSynthesisResult basicCall(String prompt, String apiKey, String modelId, String size) throws ApiException, NoApiKeyException {
+    public static ImageSynthesisResult imageGenerate(String prompt, String apiKey, String modelId, String size) throws ApiException, NoApiKeyException {
 //        String prompt = "一间有着精致窗户的花店，漂亮的木质门，摆放着花朵";
         ImageSynthesisParam param =
                 ImageSynthesisParam.builder()
@@ -37,6 +41,35 @@ public class ImgGeneration {
         }
         return result;
 //        System.out.println(JsonUtils.toJson(result));
+    }
+    public static ImageSynthesisResult imageEdit(String prompt, String apiKey, String modelId, String size, String baseImageUrl) throws ApiException, NoApiKeyException {
+        // 设置parameters参数
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("prompt_extend", true);
+
+        ImageSynthesisParam param =
+                ImageSynthesisParam.builder()
+                        .apiKey(apiKey)
+                        .model(modelId)//"wanx2.1-imageedit"
+                        .function(ImageSynthesis.ImageEditFunction.DESCRIPTION_EDIT)
+                        .prompt(prompt)
+//                        .maskImageUrl(maskImageUrl)
+                        .baseImageUrl(baseImageUrl)
+                        .n(1)
+                        .size(size)
+                        .parameters(parameters)
+                        .build();
+
+        ImageSynthesis imageSynthesis = new ImageSynthesis();
+        ImageSynthesisResult result = null;
+        try {
+            System.out.println("---sync call, please wait a moment----");
+            result = imageSynthesis.call(param);
+        } catch (ApiException | NoApiKeyException e){
+            throw new RuntimeException(e.getMessage());
+        }
+//        System.out.println(JsonUtils.toJson(result));
+        return result;
     }
 
     public static void listTask() throws ApiException, NoApiKeyException {

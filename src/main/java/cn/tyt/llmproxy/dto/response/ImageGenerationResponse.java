@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ImageGenerationResponse {
     private String imageUrl; // 生成图像的URL
-    private String revisedPrompt; // 模型可能修改过的 prompt
+    private String actualPrompt; // 模型可能修改过的 prompt
     private String usedModelIdentifier;
     // 可以是 Base64 编码的图像数据，如果模型直接返回图像字节
     // private String imageBase64Data;

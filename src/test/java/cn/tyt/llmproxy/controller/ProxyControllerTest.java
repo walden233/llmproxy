@@ -138,5 +138,26 @@ public class ProxyControllerTest extends BaseTest {
         String responseString = result.getResponse().getContentAsString();
         System.out.println("远端大模型回答:"+responseString);
     }
+
+    @Test
+    void test_EditImg_Success() throws Exception {
+        ImageGenerationRequest request = new ImageGenerationRequest();
+        ImageInput im = new ImageInput();
+        im.setUrl("http://wanx.alicdn.com/material/20250318/stylization_all_1.jpeg");
+        request.setOriginImage(im);
+        request.setPrompt("把花的颜色替换成白色");
+//        request.setModelInternalId("wanx2.1-imageedit");
+
+        MvcResult result = mockMvc.perform(post("/v1/generate-image")
+                        .header(HttpHeaders.AUTHORIZATION, authToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andReturn();
+
+        String responseString = result.getResponse().getContentAsString();
+        System.out.println("远端大模型回答:"+responseString);
+    }
 }
 

@@ -134,17 +134,27 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
     //暂未使用
     @Override
     public ImageGenerationResponse generateImage(ImageGenerationRequest request) {
-        LlmModel selectedModel = selectModel(request.getModelInternalId(), request.getModelIdentifier(), ModelCapabilityEnum.TEXT_TO_IMAGE.getValue());
+        String requiredCapability = (request.getOriginImage() != null)
+                ? ModelCapabilityEnum.IMAGE_TO_IMAGE.getValue()
+                : ModelCapabilityEnum.TEXT_TO_IMAGE.getValue();
+        LlmModel selectedModel = selectModel(request.getModelInternalId(), request.getModelIdentifier(), requiredCapability);
         log.info("使用模型生成图像: {} (ID: {})", selectedModel.getDisplayName(), selectedModel.getModelIdentifier());
         ImageSynthesisResult result;
         try {
-            result = ImgGeneration.basicCall(request.getPrompt(), selectedModel.getApiKey(), selectedModel.getModelIdentifier(), request.getSize());
+            if(requiredCapability.equals(ModelCapabilityEnum.TEXT_TO_IMAGE.getValue()))
+                result = ImgGeneration.imageGenerate(request.getPrompt(), selectedModel.getApiKey(), selectedModel.getModelIdentifier(), request.getSize());
+            else
+                result = ImgGeneration.imageEdit(request.getPrompt(), selectedModel.getApiKey(), selectedModel.getModelIdentifier(), request.getSize(),
+                        request.getOriginImage().getUrl());
         } catch (ApiException | NoApiKeyException e) {
             throw new RuntimeException(e.getMessage());
         }
+        if(result.getOutput()==null || result.getOutput().getResults()==null){
+            throw new RuntimeException("远端图片生成失败");
+        }
         return new ImageGenerationResponse(
                 result.getOutput().getResults().get(0).get("url"),
-                result.getOutput().getResults().get(0).get("actual_prompt"),
+                result.getOutput().getResults().get(0).getOrDefault("actual_prompt",request.getPrompt()),
                 selectedModel.getModelIdentifier()
         );
     }

@@ -95,8 +95,8 @@ public class ModelControllerTests extends BaseTest {
 //        ModelCreateRequest createRequest = new ModelCreateRequest();
 //        createRequest.setDisplayName("ALI-WanX");
 //        createRequest.setApiKey("sk-2a8a028420b946b4b4bbbce178e554cf");
-//        createRequest.setModelIdentifier("wanx2.1-t2i-turbo");
-//        createRequest.setCapabilities(Arrays.asList("text-to-image"));
+//        createRequest.setModelIdentifier("wanx2.1-imageedit");
+//        createRequest.setCapabilities(Arrays.asList("image-to-image"));
 //        createRequest.setPriority(3);
 //
 //        mockMvc.perform(post("/v1/models")
