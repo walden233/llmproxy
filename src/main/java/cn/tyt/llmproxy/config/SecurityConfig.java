@@ -18,6 +18,11 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.Arrays;
 
 @Configuration
 @EnableWebSecurity
@@ -41,11 +46,28 @@ public class SecurityConfig {
     public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
         return authenticationConfiguration.getAuthenticationManager();
     }
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        // 允许来自任何来源的请求（在生产环境中应该更具体，例如 "http://your-frontend-domain.com"）
+        configuration.setAllowedOriginPatterns(Arrays.asList("*"));
+        // 允许所有标准的 HTTP 方法
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        // 允许所有请求头
+        configuration.setAllowedHeaders(Arrays.asList("*"));
+        // 允许浏览器发送凭证（如 cookies）
+        configuration.setAllowCredentials(true);
 
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        // 对所有 URL 应用这个 CORS 配置
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 // 关闭 CSRF，因为我们使用 JWT，是无状态的
                 .csrf(AbstractHttpConfigurer::disable)
                 // 不通过 Session 获取 SecurityContext
@@ -53,8 +75,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // 对于登录和注册接口，允许匿名访问
                         .requestMatchers("/v1/auth/login", "/v1/auth/register").permitAll()
-                        // 允许 OPTIONS 请求 (用于CORS预检)
-                        .requestMatchers(HttpMethod.OPTIONS).permitAll()
+//                        // 允许 OPTIONS 请求 (用于CORS预检)
+//                        .requestMatchers(HttpMethod.OPTIONS).permitAll()
                         // 除上面外的所有请求全部需要鉴权认证
                         .anyRequest().authenticated()
                 )
