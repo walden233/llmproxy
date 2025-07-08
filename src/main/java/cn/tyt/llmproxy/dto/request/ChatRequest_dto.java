@@ -8,7 +8,6 @@ import java.util.Map;
 @Data
 public class ChatRequest_dto {
 
-//    @NotBlank(message = "用户消息不能为空")
     private String userMessage;
 
     // 可选：指定使用哪个模型 (数据库中的模型ID或标识符)

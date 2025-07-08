@@ -18,7 +18,7 @@ public class ImageGenerationRequest {
     // 可选：输出图像尺寸，例如 "1024x1024"
     private String size;
 
-    // 支持图片输入
+    // 可选：支持图片输入
     private ImageInput originImage;
 
     // 可选：其他模型特定参数
