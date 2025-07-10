@@ -28,7 +28,7 @@ mybatis-plus:
 # JWT ??
 jwt:
   secret: SecretKeyForHS256wduiwehgiulawefbuijfwebdiulfbWEILU # 不够长会报错
-  expiration: 86400 # Token ???????? (?? 24??)
+  expiration: 315360000 # 86400
   header: Authorization
   token-prefix: "Bearer "
 
