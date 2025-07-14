@@ -6,7 +6,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 # --- Configuration ---
 # Adjust these values to match your environment
-BASE_URL = "http://localhost:8080"  # Your Spring Boot application's address
+BASE_URL = "http://localhost:8060"  # Your Spring Boot application's address
 LOGIN_ENDPOINT = "/v1/auth/login"
 CHAT_ENDPOINT = "/v1/chat"
 
