@@ -2,6 +2,7 @@ package cn.tyt.llmproxy.config;
 
 import cn.tyt.llmproxy.filter.JwtAuthenticationTokenFilter;
 import cn.tyt.llmproxy.service.IAdminService;
+import cn.tyt.llmproxy.security.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,6 +23,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+
 import java.util.Arrays;
 
 @Configuration
@@ -34,6 +36,11 @@ public class SecurityConfig {
 
     @Autowired
     private JwtAuthenticationTokenFilter jwtAuthenticationTokenFilter;
+    @Autowired
+    private RestAuthenticationEntryPoint unauthorizedHandler;
+
+    @Autowired
+    private RestfulAccessDeniedHandler accessDeniedHandler;
 
     // 密码编码器
     @Bean
@@ -81,12 +88,11 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 // 添加 JWT filter
-                .addFilterBefore(jwtAuthenticationTokenFilter, UsernamePasswordAuthenticationFilter.class);
-        // 可以配置自定义的认证失败和授权失败处理器
-        // .exceptionHandling(exceptions -> exceptions
-        //     .authenticationEntryPoint(unauthorizedHandler)
-        //     .accessDeniedHandler(accessDeniedHandler)
-        // );
+                .addFilterBefore(jwtAuthenticationTokenFilter, UsernamePasswordAuthenticationFilter.class)
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint(unauthorizedHandler)
+                        .accessDeniedHandler(accessDeniedHandler)
+                );
 
         return http.build();
     }
