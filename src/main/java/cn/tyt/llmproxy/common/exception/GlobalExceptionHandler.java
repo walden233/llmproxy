@@ -110,7 +110,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Result<?> handleHttpMessageNotReadableException(HttpMessageNotReadableException e, HttpServletRequest request) {
-        log.warn("HTTP消息不可读: {} - 请求路径: {}", e.getMessage(), request.getRequestURI());
+        log.warn("HTTP消息不可读: {} - 请求路径: {}", e.getMessage(), request.getRequestURI(),e);
         return Result.error(ResultCode.PARAM_ERROR.getCode(), "请求参数格式错误");
     }
 
