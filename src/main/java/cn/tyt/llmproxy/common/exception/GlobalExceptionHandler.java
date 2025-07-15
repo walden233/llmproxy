@@ -32,6 +32,13 @@ import java.util.stream.Collectors;
 @Slf4j
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public Result<?> handleIllegalArgumentException(IllegalArgumentException e, HttpServletRequest request) {
+        log.error("参数异常: {} - 请求路径: {}", e.getMessage(), request.getRequestURI());
+        return Result.error(ResultCode.PARAM_ERROR.getCode(), e.getMessage());
+    }
+
     /**
      * 处理参数校验异常 - @Valid 注解校验失败
      */
@@ -153,8 +160,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(NullPointerException.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public Result<?> handleNullPointerException(NullPointerException e, HttpServletRequest request) {
-        log.error("空指针异常: {} - 请求路径: {}", e.getMessage(), request.getRequestURI(), e);
-        return Result.error(ResultCode.INTERNAL_SERVER_ERROR.getCode(), "系统内部错误");
+        log.error("空指针异常: {} - 请求路径: {}", e.getMessage(), request.getRequestURI());
+        return Result.error(ResultCode.INTERNAL_SERVER_ERROR.getCode(), "系统内部错误:空指针");
     }
 
     /**
@@ -163,8 +170,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(RuntimeException.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public Result<?> handleRuntimeException(RuntimeException e, HttpServletRequest request) {
-        log.error("运行时异常: {} - 请求路径: {}", e.getMessage(), request.getRequestURI(), e);
-        return Result.error(ResultCode.INTERNAL_SERVER_ERROR.getCode(), "系统运行时错误");
+        log.error("运行时异常: {} - 请求路径: {}", e.getMessage(), request.getRequestURI());
+        return Result.error(ResultCode.INTERNAL_SERVER_ERROR.getCode(), e.getMessage());
     }
 
     /**
@@ -173,7 +180,9 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public Result<?> handleException(Exception e, HttpServletRequest request) {
-        log.error("未知异常: {} - 请求路径: {}", e.getMessage(), request.getRequestURI(), e);
-        return Result.error(ResultCode.INTERNAL_SERVER_ERROR.getCode(), "系统内部错误");
+        log.error("未知异常: {} - 请求路径: {}", e.getMessage(), request.getRequestURI(),e);
+        return Result.error(ResultCode.INTERNAL_SERVER_ERROR.getCode(), e.getMessage());
     }
+
+
 }

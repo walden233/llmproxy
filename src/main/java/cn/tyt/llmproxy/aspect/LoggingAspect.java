@@ -81,37 +81,37 @@ public class LoggingAspect {
     /**
      * 环绕通知：记录Service方法的执行情况
      */
-    @Around("serviceMethods()")
-    public Object logServiceExecution(ProceedingJoinPoint joinPoint) throws Throwable {
-        String traceId = UUID.randomUUID().toString().substring(0, 8);
-        String methodName = joinPoint.getSignature().getDeclaringTypeName() + "." + joinPoint.getSignature().getName();
-
-        long startTime = System.currentTimeMillis();
-        Object result = null;
-        Throwable exception = null;
-
-        try {
-            log.debug("[{}] Service方法开始执行: {}", traceId, methodName);
-
-            // 执行目标方法
-            result = joinPoint.proceed();
-
-            return result;
-        } catch (Throwable ex) {
-            exception = ex;
-            log.error("[{}] Service方法执行异常: {} - {}", traceId, methodName, ex.getMessage());
-            throw ex;
-        } finally {
-            long endTime = System.currentTimeMillis();
-            long duration = endTime - startTime;
-
-            if (exception == null) {
-                log.debug("[{}] Service方法执行完成: {} - 耗时: {}ms", traceId, methodName, duration);
-            } else {
-                log.error("[{}] Service方法执行失败: {} - 耗时: {}ms", traceId, methodName, duration);
-            }
-        }
-    }
+//    @Around("serviceMethods()")
+//    public Object logServiceExecution(ProceedingJoinPoint joinPoint) throws Throwable {
+//        String traceId = UUID.randomUUID().toString().substring(0, 8);
+//        String methodName = joinPoint.getSignature().getDeclaringTypeName() + "." + joinPoint.getSignature().getName();
+//
+//        long startTime = System.currentTimeMillis();
+//        Object result = null;
+//        Throwable exception = null;
+//
+//        try {
+//            log.debug("[{}] Service方法开始执行: {}", traceId, methodName);
+//
+//            // 执行目标方法
+//            result = joinPoint.proceed();
+//
+//            return result;
+//        } catch (Throwable ex) {
+//            exception = ex;
+//            log.error("[{}] Service方法执行异常: {} - {}", traceId, methodName, ex.getMessage());
+//            throw ex;
+//        } finally {
+//            long endTime = System.currentTimeMillis();
+//            long duration = endTime - startTime;
+//
+//            if (exception == null) {
+//                log.debug("[{}] Service方法执行完成: {} - 耗时: {}ms", traceId, methodName, duration);
+//            } else {
+//                log.error("[{}] Service方法执行失败: {} - 耗时: {}ms", traceId, methodName, duration);
+//            }
+//        }
+//    }
 
     /**
      * 环绕通知：记录带有@LogExecution注解的方法
@@ -157,15 +157,15 @@ public class LoggingAspect {
         }
     }
 
-    /**
-     * 异常通知：记录所有异常
-     */
-    @AfterThrowing(pointcut = "controllerMethods() || serviceMethods()", throwing = "ex")
-    public void logException(JoinPoint joinPoint, Throwable ex) {
-        String methodName = joinPoint.getSignature().getDeclaringTypeName() + "." + joinPoint.getSignature().getName();
-        log.error("方法执行异常: {} - 异常类型: {} - 异常信息: {}",
-                methodName, ex.getClass().getSimpleName(), ex.getMessage());
-    }
+//    /**
+//     * 异常通知：记录所有异常
+//     */
+//    @AfterThrowing(pointcut = "controllerMethods() || serviceMethods()", throwing = "ex")
+//    public void logException(JoinPoint joinPoint, Throwable ex) {
+//        String methodName = joinPoint.getSignature().getDeclaringTypeName() + "." + joinPoint.getSignature().getName();
+//        log.error("方法执行异常: {} - 异常类型: {} - 异常信息: {}",
+//                methodName, ex.getClass().getSimpleName(), ex.getMessage());
+//    }
 
     private void logRequestStart(String traceId, String methodName, Object[] args, HttpServletRequest request) {
         StringBuilder logMessage = new StringBuilder();
