@@ -170,8 +170,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(RuntimeException.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public Result<?> handleRuntimeException(RuntimeException e, HttpServletRequest request) {
-        log.error("运行时异常: {} - 请求路径: {}", e.getMessage(), request.getRequestURI());
-        return Result.error(ResultCode.INTERNAL_SERVER_ERROR.getCode(), e.getMessage());
+        log.error("运行时异常: {} - 请求路径: {}", cutMessage(e.getMessage()), request.getRequestURI());
+        return Result.error(ResultCode.INTERNAL_SERVER_ERROR.getCode(), cutMessage(e.getMessage()));
     }
 
     /**
@@ -180,8 +180,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public Result<?> handleException(Exception e, HttpServletRequest request) {
-        log.error("未知异常: {} - 请求路径: {}", e.getMessage(), request.getRequestURI(),e);
-        return Result.error(ResultCode.INTERNAL_SERVER_ERROR.getCode(), e.getMessage());
+        log.error("未知异常: {} - 请求路径: {}", cutMessage(e.getMessage()), request.getRequestURI(),e);
+        return Result.error(ResultCode.INTERNAL_SERVER_ERROR.getCode(), cutMessage(e.getMessage()));
+    }
+
+    private String cutMessage(String message){
+        return message.length() > 1000 ? message.substring(0, 1000) + "..." : message;
     }
 
 

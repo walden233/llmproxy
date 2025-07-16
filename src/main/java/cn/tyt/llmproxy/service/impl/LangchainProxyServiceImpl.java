@@ -95,11 +95,11 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
                         if (StringUtils.hasText(imgInput.getBase64())) {
                             // 假设 base64 字符串不包含 "data:image/jpeg;base64," 前缀
                             // 如果包含，需要先去除
-//                            return new ImageContent(Image.builder()
-//                                    .base64Data(imgInput.getBase64())
-////                                    .mimeType(detectMimeType(imgInput.getBase64())) // 可选但推荐，或让模型自动识别
-//                                    .build());
-                            return new ImageContent(Image.builder().url(imgInput.getBase64()).build());
+                            return new ImageContent(Image.builder()
+                                    .base64Data(imgInput.getBase64())
+                                    .mimeType(detectMimeType(imgInput.getBase64())) // 可选但推荐，或让模型自动识别
+                                    .build());
+//                            return new ImageContent(Image.builder().url(imgInput.getBase64()).build());
                         } else if (StringUtils.hasText(imgInput.getUrl())) {
                             return new ImageContent(Image.builder().url(imgInput.getUrl()).build());
                         }
@@ -210,7 +210,7 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
         // 或者后端使用更复杂的库来检测
         if (base64Data.startsWith("/9j/")) {
             return "image/jpeg";
-        } else if (base64Data.startsWith("iVBORw0KGgo=")) {
+        } else if (base64Data.startsWith("iVBORw0KGgo")) {
             return "image/png";
         } else if (base64Data.startsWith("R0lGODdh")) {
             return "image/gif";

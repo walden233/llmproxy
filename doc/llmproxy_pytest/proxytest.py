@@ -63,9 +63,12 @@ def call_chat_api_with_image(base_url: str, token: str):
     chat_url = f"{base_url}{CHAT_ENDPOINT}"
     
     # 1. Encode the local image to Base64
-    with open(IMAGE_PATH, "rb") as image_file:
-        base64_image = base64.b64encode(image_file.read()).decode('utf-8')
+    # with open(IMAGE_PATH, "rb") as image_file:
+    #     base64_image = base64.b64encode(image_file.read()).decode('utf-8')
 
+    with open("C:\java\model_service\llmproxy\doc\llmproxy_pytest\llmproxy-info.json", 'r', encoding='utf-8') as f:
+        data = json.load(f)
+        base64_image= data["images"][0]["base64"]
     chat_payload = {
         "userMessage": USER_MESSAGE,
         "images": [

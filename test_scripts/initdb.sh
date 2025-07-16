@@ -5,7 +5,7 @@ curl -X POST \
   -H "Content-Type: application/json" \
   -d '{
         "displayName": "deepseek-v3",
-        "apiKey": "  ",
+        "apiKey": "sk-eb8bf23e464147f19a8a16fbafa85ef7",
         "modelIdentifier": "deepseek-chat",
         "urlBase": "https://api.deepseek.com/v1",
         "capabilities": ["text-to-text"],
@@ -19,7 +19,7 @@ curl -X POST \
   -H "Content-Type: application/json" \
   -d '{
         "displayName": "GLM-4V",
-        "apiKey": "  ",
+        "apiKey": "bc5b4115ed4804053abcd0f2d6f77c3e.jWT0d5kr7Ns6rodl",
         "modelIdentifier": "glm-4v-plus-0111",
         "urlBase": "https://open.bigmodel.cn/api/paas/v4",
         "capabilities": ["text-to-text","image-to-text"],
@@ -32,7 +32,7 @@ curl -X POST \
   -H "Content-Type: application/json" \
   -d '{
         "displayName": "GLM-4",
-        "apiKey": "  ",
+        "apiKey": "bc5b4115ed4804053abcd0f2d6f77c3e.jWT0d5kr7Ns6rodl",
         "modelIdentifier": "glm-4-plus",
         "urlBase": "https://open.bigmodel.cn/api/paas/v4",
         "capabilities": ["text-to-text"],
@@ -59,7 +59,7 @@ curl -X POST \
   -H "Content-Type: application/json" \
   -d '{
         "displayName": "ALI-WanX",
-        "apiKey": "  ",
+        "apiKey": "sk-3e093b89cfa34d11af175568251f9ffd",
         "modelIdentifier": "wanx2.1-imageedit",
         "urlBase": null,
         "capabilities": ["image-to-image"],

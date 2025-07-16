@@ -201,7 +201,7 @@ public class LoggingAspect {
                     traceId, methodName, duration, formatResult(result));
         } else {
             log.error("[{}] 请求失败: {} - 耗时: {}ms - 异常: {}",
-                    traceId, methodName, duration, exception.getMessage());
+                    traceId, methodName, duration, formatResult(exception));
         }
     }
 
