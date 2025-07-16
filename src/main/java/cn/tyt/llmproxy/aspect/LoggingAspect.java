@@ -214,6 +214,7 @@ public class LoggingAspect {
             // 过滤敏感信息
             Object[] filteredArgs = Arrays.stream(args)
                     .map(this::filterSensitiveInfo)
+                    .map(this::formatResult)
                     .toArray();
             return objectMapper.writeValueAsString(filteredArgs);
         } catch (Exception e) {
@@ -243,8 +244,7 @@ public class LoggingAspect {
 
         String objStr = obj.toString();
          //简单的敏感信息过滤，实际项目中可以更完善
-        if (objStr.toLowerCase().contains("password") ||
-                objStr.toLowerCase().contains("apikey")) {
+        if (objStr.toLowerCase().contains("password")) {
             return "***FILTERED***";
         }
 

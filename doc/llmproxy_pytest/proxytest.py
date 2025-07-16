@@ -17,7 +17,7 @@ PASSWORD = "password"
 # --- Test Data ---
 # The script will create this image if it doesn't exist.
 # You can also replace this with the path to your own image.
-IMAGE_PATH = "test_image2.jpg" 
+IMAGE_PATH = "test_image3.png" 
 USER_MESSAGE = "这张图片里有什么内容？" # Your custom message to the model
 # The model identifier you want to test with (from your Java test)
 MODEL_IDENTIFIER = " " # Example: "glm-4v-plus-0111"
@@ -66,23 +66,30 @@ def call_chat_api_with_image(base_url: str, token: str):
     with open(IMAGE_PATH, "rb") as image_file:
         base64_image = base64.b64encode(image_file.read()).decode('utf-8')
 
-    # 2. Construct the payload based on ChatRequest_dto
     chat_payload = {
         "userMessage": USER_MESSAGE,
-        "modelIdentifier": MODEL_IDENTIFIER,
-        "history": [], # You can add history here if needed
-        "options": {},   # You can add options like temperature here
         "images": [
             {
                 "base64": base64_image,
-                #"base64": f"data:image/jpeg;base64,{base64_image}", #有这串前缀也行
                 #"url": "https://i0.hdslb.com/bfs/archive/fbcca754eadc47994aaaa0964a7ddf366cd8033a.png", 
-                "url": None,
-                "role": "user_upload"
             }
         ]
     }
-
+    # 2. Construct the payload based on ChatRequest_dto
+    # chat_payload = {
+    #     "userMessage": USER_MESSAGE,
+    #     "modelIdentifier": MODEL_IDENTIFIER,
+    #     "history": [], # You can add history here if needed
+    #     "options": {},   # You can add options like temperature here
+    #     "images": [
+    #         {
+    #             "base64": base64_image,
+    #             #"url": "https://i0.hdslb.com/bfs/archive/fbcca754eadc47994aaaa0964a7ddf366cd8033a.png", 
+    #             "url": None,
+    #             "role": "user_upload"
+    #         }
+    #     ]
+    # }
     # 3. Prepare headers with the auth token
     headers = {
         "Content-Type": "application/json",
