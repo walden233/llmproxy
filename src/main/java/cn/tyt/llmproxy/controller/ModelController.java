@@ -47,7 +47,7 @@ public class ModelController {
         return Result.success(modelService.updateModel(id, request));
     }
 
-    @PatchMapping("/{id}/status")
+    @PostMapping("/{id}/status")
     public Result<ModelResponse> updateModelStatus(@PathVariable Integer id, @Valid @RequestBody ModelStatusUpdateRequest request) {
         return Result.success(modelService.updateModelStatus(id, request));
     }
