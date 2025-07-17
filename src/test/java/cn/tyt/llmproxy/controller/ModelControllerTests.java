@@ -224,7 +224,7 @@ public class ModelControllerTests extends BaseTest {
         ModelStatusUpdateRequest statusRequest = new ModelStatusUpdateRequest();
         statusRequest.setStatus(0); // 下线
 
-        mockMvc.perform(patch("/v1/models/" + modelId + "/status")
+        mockMvc.perform(post("/v1/models/" + modelId + "/status")
                         .header(HttpHeaders.AUTHORIZATION, authToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(statusRequest)))
