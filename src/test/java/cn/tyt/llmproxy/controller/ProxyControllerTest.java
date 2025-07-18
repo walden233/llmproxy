@@ -76,12 +76,44 @@ public class ProxyControllerTest extends BaseTest {
     @Test
     void testChat_Success_AutoSelectModel() throws Exception {
         ChatRequest_dto chatRequest = new ChatRequest_dto();
-        chatRequest.setUserMessage("你拍二");
-        List<String> history = new ArrayList<>();
+        chatRequest.setUserMessage("重复一遍");
+        List<Map<String,String>> history = new ArrayList<>();
         //测试提供记忆
-        history.add("user: 你拍一");
-        history.add("ai: 我不拍一");
+        history.add(Map.of("role", "user", "content", "你拍一"));
+        history.add(Map.of("role", "assistant", "content", "我不拍一"));
         chatRequest.setHistory(history);
+        // 不指定 modelIdentifier，让系统自动选择
+
+        MvcResult result = mockMvc.perform(post("/v1/chat")
+                        .header(HttpHeaders.AUTHORIZATION, authToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(chatRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+//                .andExpect(jsonPath("$.data.usedModelIdentifier").value(MOCK_CHAT_MODEL_ID))
+                .andReturn();
+
+        String responseString = result.getResponse().getContentAsString();
+        System.out.println("远端大模型回答:"+responseString);
+    }
+
+    @Test
+    void testChat_Success_With_Options() throws Exception {
+        ChatRequest_dto chatRequest = new ChatRequest_dto();
+        chatRequest.setUserMessage("重复一遍");
+        List<Map<String,String>> history = new ArrayList<>();
+        //测试提供记忆
+        history.add(Map.of("role", "user", "content", "你拍一"));
+        history.add(Map.of("role", "assistant", "content", "我不拍一"));
+        chatRequest.setHistory(history);
+
+        chatRequest.setOptions(Map.of(
+                "temperature", 0.7,
+                "max_tokens", 512,
+                "top_p", 0.9,
+                "frequency_penalty", 0.0
+        ));
+        chatRequest.setModelIdentifier("glm-4-plus");
         // 不指定 modelIdentifier，让系统自动选择
 
         MvcResult result = mockMvc.perform(post("/v1/chat")

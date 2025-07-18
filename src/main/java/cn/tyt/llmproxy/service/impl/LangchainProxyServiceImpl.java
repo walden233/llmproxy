@@ -19,6 +19,7 @@ import dev.langchain4j.data.message.*;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 //import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.image.ImageModel;
 import dev.langchain4j.model.openai.OpenAiChatModel;
@@ -68,18 +69,14 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
 
         // 处理历史消息
         if (request.getHistory() != null && !request.getHistory().isEmpty()) {
-            for (String historyMessage : request.getHistory()) {
-                // 简单解析 "role: content" 格式，可能需要更健壮的解析
-                String[] parts = historyMessage.split(":", 2);
-                if (parts.length == 2) {
-                    if ("user".equalsIgnoreCase(parts[0].trim())) {
-                        messages.add(UserMessage.from(parts[1].trim()));
-                    } else if ("assistant".equalsIgnoreCase(parts[0].trim()) || "ai".equalsIgnoreCase(parts[0].trim())) {
-                        messages.add(AiMessage.from(parts[1].trim()));
-                    }
-                    else if("system".equalsIgnoreCase(parts[0].trim())){
-                        messages.add(SystemMessage.from(parts[1].trim()));
-                    }
+            for (Map<String,String> historyMsg : request.getHistory()) {
+                if (historyMsg.get("role").equals("user")) {
+                    messages.add(UserMessage.from(historyMsg.get("content")));
+                } else if (historyMsg.get("role").equals("assistant")) {
+                    messages.add(AiMessage.from(historyMsg.get("content")));
+                }
+                else if(historyMsg.get("role").equals("system")){
+                    messages.add(SystemMessage.from(historyMsg.get("content")));
                 }
             }
         }
@@ -119,9 +116,28 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
         }
         messages.add(currentUserMessage);
 
+        // 从 DTO 中提取
+        Map<String, Object> options = request.getOptions();
+        ChatRequest.Builder builder= ChatRequest.builder();
 
+        if (options != null) {
+            if (options.containsKey("temperature")) {
+                builder.temperature(((Number)options.get("temperature")).doubleValue());
+            }
+            if (options.containsKey("max_tokens")) {
+                builder.maxOutputTokens(((Number) options.get("max_tokens")).intValue());
+            }
+            if (options.containsKey("top_p")) {
+                builder.topP(((Number) options.get("top_p")).doubleValue());
+            }
+            if (options.containsKey("frequency_penalty")) {
+                builder.frequencyPenalty(((Number) options.get("frequency_penalty")).doubleValue());
+            }
+            // 可扩展更多参数
+        }
         // 调用第三方大模型
-        ChatResponse response = chatModel.chat(messages);
+        ChatRequest chatRequest = builder.messages(messages).build();
+        ChatResponse response = chatModel.chat(chatRequest);
 
         if (response == null || response.aiMessage() == null) {
             throw new RuntimeException("模型未能生成响应。");
