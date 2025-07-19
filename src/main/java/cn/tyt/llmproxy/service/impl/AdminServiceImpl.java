@@ -143,6 +143,27 @@ public class AdminServiceImpl implements IAdminService {
         return newAccessKey;
     }
 
+    @Override
+    @Transactional
+    public void deleteMyAccessKey(Integer keyId) {
+        // 1. 获取当前登录的管理员
+        Admin currentUser = getCurrentAdmin();
+
+        // 2. 根据ID查询要删除的AccessKey
+        AccessKey accessKeyToDelete = accessKeyMapper.selectById(keyId);
+
+        // 3. 安全校验：
+        //    a) 检查Key是否存在
+        //    b) 检查Key是否属于当前登录的管理员
+        if (accessKeyToDelete == null || !accessKeyToDelete.getAdminId().equals(currentUser.getId())) {
+            // 抛出一个自定义异常，后续可以通过 @ControllerAdvice 捕获并返回 404 Not Found
+            throw new IllegalArgumentException("Access Key not found with id: " + keyId);
+        }
+
+        // 4. 执行删除操作
+        accessKeyMapper.deleteById(keyId);
+    }
+
     /**
      * 获取当前登录用户的所有AccessKey
      */

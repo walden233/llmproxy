@@ -50,4 +50,14 @@ public class AdminController {
         List<AccessKey> keys = adminService.getAccessKeys();
         return Result.success(keys);
     }
+
+    /**
+     * 删除当前用户的一个指定Access Key
+     * @param id 要删除的Access Key的ID
+     */
+    @DeleteMapping("/delete-key/{id}")
+    public Result<Void> deleteAccessKey(@PathVariable Integer id) {
+        adminService.deleteMyAccessKey(id);
+        return Result.success(); // 删除成功，返回一个没有数据体的成功响应
+    }
 }

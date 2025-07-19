@@ -24,4 +24,6 @@ public interface IAdminService extends UserDetailsService { // 继承 UserDetail
      * @return AccessKey列表
      */
     List<AccessKey> getAccessKeys();
+
+    void deleteMyAccessKey(Integer keyId);
 }
