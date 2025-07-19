@@ -20,3 +20,13 @@ CREATE TABLE llm_models (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `access_keys` (
+    `id` INT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `key_value` VARCHAR(255) NOT NULL COMMENT 'Access Key的值，必须唯一',
+    `admin_id` INT NOT NULL COMMENT '创建该Key的管理员ID',
+    `is_active` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '密钥状态: 1=可用, 0=不可用',
+    `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_key_value` (`key_value`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='API访问密钥表';

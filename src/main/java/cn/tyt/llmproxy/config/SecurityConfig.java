@@ -81,7 +81,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         // 对于登录和注册接口，允许匿名访问
-                        .requestMatchers("/v1/auth/login", "/v1/auth/register").permitAll()
+                        .requestMatchers("/v1/auth/login", "/v1/auth/register", "/v1/chat", "/v1/generate-image").permitAll()
 //                        // 允许 OPTIONS 请求 (用于CORS预检)
 //                        .requestMatchers(HttpMethod.OPTIONS).permitAll()
                         // 除上面外的所有请求全部需要鉴权认证
