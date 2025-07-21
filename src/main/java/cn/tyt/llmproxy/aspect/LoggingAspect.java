@@ -200,7 +200,7 @@ public class LoggingAspect {
             log.info("[{}] 请求完成: {} - 耗时: {}ms - 返回值: {}",
                     traceId, methodName, duration, formatResult(result));
         } else {
-            log.error("[{}] 请求失败: {} - 耗时: {}ms - 异常: {}",
+            log.error("[{}] 请求失败: {} - 耗时: {}ms - 异常: {} - msg: {}",
                     traceId, methodName, duration, exception.getClass().getName(),formatResult(exception.getMessage()));
         }
     }

@@ -158,18 +158,23 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
         ImageSynthesisResult result;
         try {
             if(requiredCapability.equals(ModelCapabilityEnum.TEXT_TO_IMAGE.getValue()))
-                result = ImgGeneration.imageGenerate(request.getPrompt(), selectedModel.getApiKey(), selectedModel.getModelIdentifier(), request.getSize());
+                result = ImgGeneration.imageGenerate(request.getPrompt(), selectedModel.getApiKey(), selectedModel.getModelIdentifier(),request.getOptions());
             else
-                result = ImgGeneration.imageEdit(request.getPrompt(), selectedModel.getApiKey(), selectedModel.getModelIdentifier(), request.getSize(),
+                result = ImgGeneration.imageEdit(request.getPrompt(), selectedModel.getApiKey(), selectedModel.getModelIdentifier(),request.getOptions(),
                         request.getOriginImage().getUrl());
         } catch (ApiException | NoApiKeyException e) {
             throw new RuntimeException(e.getMessage());
         }
         if(result.getOutput()==null || result.getOutput().getResults()==null){
+            log.error(String.valueOf(result));
             throw new RuntimeException("远端图片生成失败");
         }
+        List<String> outUrls = new ArrayList<>();
+        for(Map<String, String> r :result.getOutput().getResults()){
+            outUrls.add(r.get("url"));
+        }
         return new ImageGenerationResponse(
-                result.getOutput().getResults().get(0).get("url"),
+                outUrls,
                 result.getOutput().getResults().get(0).getOrDefault("actual_prompt",request.getPrompt()),
                 selectedModel.getModelIdentifier()
         );

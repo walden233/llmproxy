@@ -15,12 +15,20 @@ public class ImageGenerationRequest {
     private String modelInternalId;
     private String modelIdentifier;
 
-    // 可选：输出图像尺寸，例如 "1024x1024"
-    private String size;
+//    // 可选：输出图像尺寸，例如 "1024x1024"
+//    private String size;
 
     // 可选：支持图片输入
     private ImageInput originImage;
 
     // 可选：其他模型特定参数
+//    {
+//        "size": "1024x1024",
+//        "n": 2,
+//        "seed": 42,
+//        "prompt_extend": true,
+//        "watermark":false,
+//        "strength":0.5
+//    }
     private Map<String, Object> options;
 }

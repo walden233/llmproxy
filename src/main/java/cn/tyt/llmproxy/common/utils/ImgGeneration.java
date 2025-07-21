@@ -15,7 +15,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class ImgGeneration {
-    public static ImageSynthesisResult imageGenerate(String prompt, String apiKey, String modelId, String size) throws ApiException, NoApiKeyException {
+    public static ImageSynthesisResult imageGenerate(String prompt, String apiKey, String modelId, Map<String, Object> options) throws ApiException, NoApiKeyException {
 //        String prompt = "一间有着精致窗户的花店，漂亮的木质门，摆放着花朵";
         ImageSynthesisParam param =
                 ImageSynthesisParam.builder()
@@ -28,8 +28,10 @@ public class ImgGeneration {
                         .apiKey(apiKey)
                         .model(modelId)
                         .prompt(prompt)
-                        .n(1)
-                        .size(size)
+//                        .seed((Integer) options.getOrDefault('n',42))
+//                        .n((Integer) options.getOrDefault('n',1))
+//                        .size(size)
+                        .parameters(options)
                         .build();
         ImageSynthesis imageSynthesis = new ImageSynthesis();
         ImageSynthesisResult result = null;
@@ -42,11 +44,9 @@ public class ImgGeneration {
         return result;
 //        System.out.println(JsonUtils.toJson(result));
     }
-    public static ImageSynthesisResult imageEdit(String prompt, String apiKey, String modelId, String size, String baseImageUrl) throws ApiException, NoApiKeyException {
+    public static ImageSynthesisResult imageEdit(String prompt, String apiKey, String modelId,Map<String, Object> options, String baseImageUrl) throws ApiException, NoApiKeyException {
         // 设置parameters参数
-        Map<String, Object> parameters = new HashMap<>();
-        parameters.put("prompt_extend", true);
-
+//        String baseImage = "C:/java/model_service/llmproxy/doc/llmproxy_pytest/test_image3.jpg";
         ImageSynthesisParam param =
                 ImageSynthesisParam.builder()
                         .apiKey(apiKey)
@@ -55,9 +55,9 @@ public class ImgGeneration {
                         .prompt(prompt)
 //                        .maskImageUrl(maskImageUrl)
                         .baseImageUrl(baseImageUrl)
-                        .n(1)
-                        .size(size)
-                        .parameters(parameters)
+//                        .n(1)
+//                        .size(size)
+                        .parameters(options)
                         .build();
 
         ImageSynthesis imageSynthesis = new ImageSynthesis();
