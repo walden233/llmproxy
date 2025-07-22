@@ -17,6 +17,10 @@ import java.util.Map;
 public class ImgGeneration {
     public static ImageSynthesisResult imageGenerate(String prompt, String apiKey, String modelId, Map<String, Object> options) throws ApiException, NoApiKeyException {
 //        String prompt = "一间有着精致窗户的花店，漂亮的木质门，摆放着花朵";
+        if(options==null)
+            options = new HashMap<>();
+        if(!options.containsKey("n"))
+            options.put("n",1);
         ImageSynthesisParam param =
                 ImageSynthesisParam.builder()
 //                        .apiKey("sk-2a8a028420b946b4b4bbbce178e554cf")
@@ -47,6 +51,10 @@ public class ImgGeneration {
     public static ImageSynthesisResult imageEdit(String prompt, String apiKey, String modelId,Map<String, Object> options, String baseImageUrl) throws ApiException, NoApiKeyException {
         // 设置parameters参数
 //        String baseImage = "C:/java/model_service/llmproxy/doc/llmproxy_pytest/test_image3.jpg";
+        if(options==null)
+            options = new HashMap<>();
+        if(!options.containsKey("n"))
+            options.put("n",1);
         ImageSynthesisParam param =
                 ImageSynthesisParam.builder()
                         .apiKey(apiKey)
