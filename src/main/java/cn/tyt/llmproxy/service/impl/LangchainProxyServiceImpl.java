@@ -2,7 +2,7 @@ package cn.tyt.llmproxy.service.impl;
 
 import cn.tyt.llmproxy.common.enums.ModelCapabilityEnum;
 import cn.tyt.llmproxy.common.enums.StatusEnum;
-import cn.tyt.llmproxy.common.utils.ImgGeneration;
+import cn.tyt.llmproxy.image.ImgGeneration;
 import cn.tyt.llmproxy.dto.request.ChatRequest_dto;
 import cn.tyt.llmproxy.dto.request.ImageGenerationRequest;
 import cn.tyt.llmproxy.dto.response.ChatResponse_dto;
@@ -10,21 +10,13 @@ import cn.tyt.llmproxy.dto.response.ImageGenerationResponse;
 import cn.tyt.llmproxy.entity.LlmModel;
 import cn.tyt.llmproxy.mapper.LlmModelMapper;
 import cn.tyt.llmproxy.service.ILangchainProxyService;
-import com.alibaba.dashscope.aigc.imagesynthesis.ImageSynthesisResult;
-import com.alibaba.dashscope.exception.ApiException;
-import com.alibaba.dashscope.exception.NoApiKeyException;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import dev.langchain4j.data.image.Image;
 import dev.langchain4j.data.message.*;
-import dev.langchain4j.memory.ChatMemory;
-import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 //import dev.langchain4j.model.chat.ChatLanguageModel;
 import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.response.ChatResponse;
-import dev.langchain4j.model.image.ImageModel;
 import dev.langchain4j.model.openai.OpenAiChatModel;
-import dev.langchain4j.model.openai.OpenAiImageModel;
-import dev.langchain4j.model.output.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,8 +26,6 @@ import org.springframework.util.StringUtils;
 
 import java.time.Duration;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 
 @Service
 public class LangchainProxyServiceImpl implements ILangchainProxyService {
@@ -155,29 +145,17 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
                 : ModelCapabilityEnum.TEXT_TO_IMAGE.getValue();
         LlmModel selectedModel = selectModel(request.getModelInternalId(), request.getModelIdentifier(), requiredCapability);
         log.info("使用模型生成图像: {} (ID: {})", selectedModel.getDisplayName(), selectedModel.getModelIdentifier());
-        ImageSynthesisResult result;
+        ImageGenerationResponse result;
         try {
             if(requiredCapability.equals(ModelCapabilityEnum.TEXT_TO_IMAGE.getValue()))
-                result = ImgGeneration.imageGenerate(request.getPrompt(), selectedModel.getApiKey(), selectedModel.getModelIdentifier(),request.getOptions());
+                result = ImgGeneration.imageGenerate(request, selectedModel.getApiKey(), selectedModel,request.getOptions());
             else
-                result = ImgGeneration.imageEdit(request.getPrompt(), selectedModel.getApiKey(), selectedModel.getModelIdentifier(),request.getOptions(),
+                result = ImgGeneration.imageEdit(request, selectedModel.getApiKey(), selectedModel,request.getOptions(),
                         request.getOriginImage().getUrl());
-        } catch (ApiException | NoApiKeyException e) {
+        } catch (Exception e) {
             throw new RuntimeException(e.getMessage());
         }
-        if(result.getOutput()==null || result.getOutput().getResults()==null){
-            log.error(String.valueOf(result));
-            throw new RuntimeException("远端图片生成失败");
-        }
-        List<String> outUrls = new ArrayList<>();
-        for(Map<String, String> r :result.getOutput().getResults()){
-            outUrls.add(r.get("url"));
-        }
-        return new ImageGenerationResponse(
-                outUrls,
-                result.getOutput().getResults().get(0).getOrDefault("actual_prompt",request.getPrompt()),
-                selectedModel.getModelIdentifier()
-        );
+        return result;
     }
 
     private LlmModel selectModel(String internalIdStr, String identifier, String requiredCapability) {

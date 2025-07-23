@@ -156,6 +156,11 @@
             </exclusions>
             <version>2.20.1</version>
         </dependency>
+        <dependency>
+            <groupId>com.volcengine</groupId>
+            <artifactId>volcengine-java-sdk-ark-runtime</artifactId>
+            <version>0.2.23</version>
+        </dependency>
     </dependencies>
 
     <build>
