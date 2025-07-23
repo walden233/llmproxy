@@ -2,7 +2,8 @@ package cn.tyt.llmproxy.service.impl;
 
 import cn.tyt.llmproxy.common.enums.ModelCapabilityEnum;
 import cn.tyt.llmproxy.common.enums.StatusEnum;
-import cn.tyt.llmproxy.image.ImgGeneration;
+import cn.tyt.llmproxy.image.ImageGeneratorFactory;
+import cn.tyt.llmproxy.image.ImageGeneratorService;
 import cn.tyt.llmproxy.dto.request.ChatRequest_dto;
 import cn.tyt.llmproxy.dto.request.ImageGenerationRequest;
 import cn.tyt.llmproxy.dto.response.ChatResponse_dto;
@@ -146,12 +147,12 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
         LlmModel selectedModel = selectModel(request.getModelInternalId(), request.getModelIdentifier(), requiredCapability);
         log.info("使用模型生成图像: {} (ID: {})", selectedModel.getDisplayName(), selectedModel.getModelIdentifier());
         ImageGenerationResponse result;
+        ImageGeneratorService generator = ImageGeneratorFactory.createGenerator(selectedModel);
         try {
             if(requiredCapability.equals(ModelCapabilityEnum.TEXT_TO_IMAGE.getValue()))
-                result = ImgGeneration.imageGenerate(request, selectedModel.getApiKey(), selectedModel,request.getOptions());
+                result = generator.generateImage(request);
             else
-                result = ImgGeneration.imageEdit(request, selectedModel.getApiKey(), selectedModel,request.getOptions(),
-                        request.getOriginImage().getUrl());
+                result = generator.editImage(request);
         } catch (Exception e) {
             throw new RuntimeException(e.getMessage());
         }

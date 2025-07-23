@@ -81,7 +81,8 @@
         <appender-ref ref="FILE-ERROR" />
     </logger>
 
-    <logger name="cn.tyt.llmproxy.service.impl.LangchainProxyServiceImpl" level="ERROR">
+    <logger name="cn.tyt.llmproxy.common.exception.GlobalExceptionHandler" level="WARN">
+        <appender-ref ref="FILE-WARN" />
         <appender-ref ref="FILE-ERROR" />
     </logger>
 
