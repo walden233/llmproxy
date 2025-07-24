@@ -15,9 +15,6 @@ public class ImageGenerationRequest {
     private String modelInternalId;
     private String modelIdentifier;
 
-//    // 可选：输出图像尺寸，例如 "1024x1024"
-//    private String size;
-
     // 可选：支持图片输入
     private ImageInput originImage;
 

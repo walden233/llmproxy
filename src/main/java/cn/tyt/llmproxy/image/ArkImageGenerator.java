@@ -102,7 +102,7 @@ public class ArkImageGenerator implements ImageGeneratorService {
             System.out.println("--- [Volcengine] Sync call, please wait a moment ----");
             imagesResponse = service.generateImages(generateRequest);
         } catch (Exception e) {
-            throw new RuntimeException("Volcengine API call failed: " + e.getMessage(), e);
+            throw new RuntimeException("Volcengine API call failed: " + e.getMessage());
         }
 
         if (imagesResponse.getError() != null) {
