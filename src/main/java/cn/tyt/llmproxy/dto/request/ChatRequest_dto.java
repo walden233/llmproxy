@@ -12,7 +12,7 @@ public class ChatRequest_dto {
 
     // 可选：指定使用哪个模型 (数据库中的模型ID或标识符)
     // 如果不传，则由后端根据优先级和能力选择
-    private String modelInternalId; // 数据库中的 LlmModel.id
+    private Integer modelInternalId; // 数据库中的 LlmModel.id
     private String modelIdentifier; // 数据库中的 LlmModel.modelIdentifier
 
     // 可选：传递历史消息，用于多轮对话

@@ -12,7 +12,7 @@ public class ImageGenerationRequest {
     private String prompt;
 
     // 可选：指定使用哪个文生图模型
-    private String modelInternalId;
+    private Integer modelInternalId;
     private String modelIdentifier;
 
     // 可选：支持图片输入

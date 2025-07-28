@@ -5,8 +5,7 @@ import java.time.LocalDate;
 
 @Data
 public class ModelStatisticsDto {
-    private LocalDate startDate;
-    private LocalDate endDate;
+    private LocalDate date;
     private Integer modelId;
     private String modelIdentifier;
     private Integer totalRequests;

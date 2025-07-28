@@ -40,55 +40,37 @@ public class StatisticsServiceImpl implements IStatisticsService {
         // 1. 处理 modelId
         if (queryDto.getModelId() != null) {
             queryWrapper.eq(ModelDailyStat::getModelId, queryDto.getModelId());
+        } else if(queryDto.getModelIdentifier() != null){
+            queryWrapper.eq(ModelDailyStat::getModelIdentifier, queryDto.getModelIdentifier());
         }
 
         // 2. 处理日期
-        LocalDate startDate = queryDto.getStartDate();
-        LocalDate endDate = queryDto.getEndDate();
+        LocalDate date = queryDto.getDate();
 
-        if (startDate == null && endDate == null) {
+        if (date == null) {
             // 如果都为空，查询当天
             queryWrapper.eq(ModelDailyStat::getStatDate, LocalDate.now());
-        } else if (startDate != null && endDate == null) {
-            // 只提供了 startDate，查询单日
-            queryWrapper.eq(ModelDailyStat::getStatDate, startDate);
-        } else if (startDate != null && endDate != null) {
-            // 提供了范围
-            queryWrapper.between(ModelDailyStat::getStatDate, startDate, endDate);
+        } else{
+            queryWrapper.eq(ModelDailyStat::getStatDate, date);
         }
-        // 只提供 endDate 的情况可以视为无效
 
         // 排序，让结果更可读
         queryWrapper.orderByAsc(ModelDailyStat::getModelId, ModelDailyStat::getStatDate);
-
         List<ModelDailyStat> stats = modelDailyStatMapper.selectList(queryWrapper);
-        return convertToDto(stats,startDate,endDate);
+        return convertToDto(stats);
     }
 
-    private List<ModelStatisticsDto> convertToDto(List<ModelDailyStat> stats,LocalDate startDate,LocalDate endDate) {
-        if(endDate==null){
+    private List<ModelStatisticsDto> convertToDto(List<ModelDailyStat> stats) {
             return stats.stream().map(stat -> {
                 ModelStatisticsDto dto = new ModelStatisticsDto();
                 // 可以在这里添加 modelId 和 modelIdentifier
                 dto.setModelId(stat.getModelId());
                 dto.setModelIdentifier(stat.getModelIdentifier());
-                if(startDate != null){
-                    dto.setStartDate(startDate);
-                    dto.setEndDate(startDate);
-                }
-                else{
-                    dto.setStartDate(LocalDate.now());
-                    dto.setEndDate(LocalDate.now());
-                }
+                dto.setDate(stat.getStatDate());
                 dto.setTotalRequests(stat.getTotalRequests());
                 dto.setSuccessCount(stat.getSuccessCount());
                 dto.setFailureCount(stat.getFailureCount());
                 return dto;
             }).collect(Collectors.toList());
-        }
-        else {
-            return List.of();
-        }
-
     }
 }

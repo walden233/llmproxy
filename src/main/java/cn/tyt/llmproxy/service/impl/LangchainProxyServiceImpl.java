@@ -159,14 +159,13 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
         return result;
     }
 
-    private LlmModel selectModel(String internalIdStr, String identifier, String requiredCapability) {
+    private LlmModel selectModel(Integer internalId, String identifier, String requiredCapability) {
         Optional<LlmModel> modelOpt = Optional.empty();
-        if (StringUtils.hasText(internalIdStr)) {
+        if (internalId!=null) {
             try {
-                Integer internalId = Integer.parseInt(internalIdStr);
                 modelOpt = Optional.ofNullable(llmModelMapper.selectById(internalId));
             } catch (NumberFormatException e) {
-                log.warn("无效的内部模型ID格式: {}", internalIdStr);
+                log.warn("无效的内部模型ID格式: {}", internalId);
             }
         } else if (StringUtils.hasText(identifier)) {
             modelOpt = Optional.ofNullable(llmModelMapper.selectOne(
