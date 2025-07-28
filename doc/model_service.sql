@@ -30,3 +30,16 @@ CREATE TABLE `access_keys` (
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_key_value` (`key_value`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='API访问密钥表';
+
+CREATE TABLE `model_daily_stats` (
+                                     `id` BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
+                                     `model_id` INT NOT NULL COMMENT '模型ID，关联模型表的主键',
+                                     `model_identifier` VARCHAR(100) NOT NULL COMMENT '模型唯一标识，冗余字段方便查询',
+                                     `stat_date` DATE NOT NULL COMMENT '统计日期',
+                                     `total_requests` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '当天总请求数',
+                                     `success_count` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '当天成功请求数',
+                                     `failure_count` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '当天失败请求数',
+                                     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                     `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                                     UNIQUE KEY `uk_model_date` (`model_id`, `stat_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='模型每日用量统计表';

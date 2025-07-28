@@ -78,8 +78,12 @@ public class AliImageGenerator implements ImageGeneratorService {
             throw new RuntimeException("Alibaba API call failed: " + e.getMessage(), e);
         }
 
-        if (result.getOutput() == null || result.getOutput().getResults() == null) {
-            throw new RuntimeException("[Alibaba] 远端图片生成失败");
+        if (result.getOutput().getResults() == null) {
+            String message = result.getOutput().getMessage();
+            if(message!=null)
+                throw new RuntimeException("[Alibaba] 远端图片生成失败："+message);
+            else
+                throw new RuntimeException("[Alibaba] 远端图片生成失败");
         }
 
         List<String> outUrls = new ArrayList<>();

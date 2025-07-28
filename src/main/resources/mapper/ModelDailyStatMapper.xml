@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.tyt.llmproxy.mapper.ModelDailyStatMapper">
+
+    <insert id="upsert" parameterType="cn.tyt.llmproxy.entity.ModelDailyStat">
+        INSERT INTO model_daily_stats
+        (model_id, model_identifier, stat_date, total_requests, success_count, failure_count)
+        VALUES
+            (#{stat.modelId}, #{stat.modelIdentifier}, #{stat.statDate}, #{stat.totalRequests}, #{stat.successCount}, #{stat.failureCount})
+            ON DUPLICATE KEY UPDATE
+                                 total_requests = total_requests + VALUES(total_requests),
+                                 success_count = success_count + VALUES(success_count),
+                                 failure_count = failure_count + VALUES(failure_count);
+    </insert>
+
+</mapper>
