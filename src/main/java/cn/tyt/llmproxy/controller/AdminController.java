@@ -1,6 +1,7 @@
 package cn.tyt.llmproxy.controller;
 
 import cn.tyt.llmproxy.common.domain.Result;
+import cn.tyt.llmproxy.dto.request.AdminChangePasswordRequest;
 import cn.tyt.llmproxy.dto.request.AdminLoginRequest;
 import cn.tyt.llmproxy.dto.request.AdminRegisterRequest;
 import cn.tyt.llmproxy.dto.response.AdminLoginResponse;
@@ -31,6 +32,18 @@ public class AdminController {
     public Result<AdminLoginResponse> login(@Valid @RequestBody AdminLoginRequest request) {
         AdminLoginResponse response = adminService.login(request);
         return Result.success(response);
+    }
+
+    /**
+     * 修改当前登录用户的密码
+     * @param request 包含旧密码和新密码
+     * @return 成功消息
+     */
+    @PostMapping("/change-password")
+    public Result<?> changePassword(@Valid @RequestBody AdminChangePasswordRequest request) {
+        adminService.changePassword(request);
+        // 提示用户密码已修改，建议重新登录，因为旧的token仍然在有效期内
+        return Result.success("密码修改成功，为了安全建议您重新登录。");
     }
 
     /**

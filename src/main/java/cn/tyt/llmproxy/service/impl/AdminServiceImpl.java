@@ -1,5 +1,6 @@
 package cn.tyt.llmproxy.service.impl;
 
+import cn.tyt.llmproxy.dto.request.AdminChangePasswordRequest;
 import cn.tyt.llmproxy.entity.AccessKey;
 import cn.tyt.llmproxy.mapper.AccessKeyMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -141,6 +142,29 @@ public class AdminServiceImpl implements IAdminService {
 
         // 4. 返回创建的实体
         return newAccessKey;
+    }
+
+    @Override
+    @Transactional
+    public void changePassword(AdminChangePasswordRequest request) {
+        // 1. 获取当前登录的管理员信息
+        Admin currentUser = getCurrentAdmin();
+
+        // 2. 验证旧密码是否正确
+        // 使用 PasswordEncoder 的 matches 方法来比较明文旧密码和数据库中存储的哈希密码
+        if (!getPasswordEncoder().matches(request.getOldPassword(), currentUser.getPasswordHash())) {
+            throw new BadCredentialsException("旧密码不正确");
+        }
+
+        // 3. 将新密码加密并更新到数据库
+        currentUser.setPasswordHash(getPasswordEncoder().encode(request.getNewPassword()));
+        currentUser.setUpdatedAt(LocalDateTime.now()); // 更新修改时间
+
+        adminMapper.updateById(currentUser);
+
+        // 安全提示：密码修改后，理论上应该让所有旧的JWT令牌失效。
+        // 在简单的无状态JWT实现中，这比较困难。一个常见的做法是强制用户重新登录。
+        // 可以在Controller层返回特定消息提示用户。
     }
 
     @Override

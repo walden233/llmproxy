@@ -1,5 +1,6 @@
 package cn.tyt.llmproxy.service;
 
+import cn.tyt.llmproxy.dto.request.AdminChangePasswordRequest;
 import cn.tyt.llmproxy.dto.request.AdminLoginRequest;
 import cn.tyt.llmproxy.dto.request.AdminRegisterRequest;
 import cn.tyt.llmproxy.dto.response.AdminLoginResponse;
@@ -26,4 +27,10 @@ public interface IAdminService extends UserDetailsService { // 继承 UserDetail
     List<AccessKey> getAccessKeys();
 
     void deleteMyAccessKey(Integer keyId);
+
+    /**
+     * 修改当前登录管理员的密码
+     * @param request 包含旧密码和新密码的请求体
+     */
+    void changePassword(AdminChangePasswordRequest request);
 }
