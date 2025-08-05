@@ -20,7 +20,7 @@ public class AccessKeyValidationService {
      * @param keyValue 待校验的key
      * @return 如果有效返回true，否则返回false
      */
-    @Cacheable(value = "api-keys", key = "#keyValue", unless = "#result == false")
+    //@Cacheable(value = "api-keys", key = "#keyValue", unless = "#result == false")
     public boolean isValid(String keyValue) {
         if (keyValue == null || keyValue.trim().isEmpty()) {
             return false;
