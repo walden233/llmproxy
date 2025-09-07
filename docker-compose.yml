@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  # MySQL 服务定义 (保持不变)
+  mysql-db:
+    image: mysql:8.0
+    container_name: mysql-db-container
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-123456}
+      MYSQL_DATABASE: ${DB_NAME:-model_service}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./llmproxy/mysql-init:/docker-entrypoint-initdb.d
+
+    networks:
+      - my-app-network
+
+  # Spring Boot 应用服务定义 (名称改为 springboot-app 以便区分)
+  springboot-app:
+    build:
+      context: . # 指定后端项目的构建上下文
+    container_name: llmproxy-backend-container
+
+    restart: always
+    depends_on:
+      - mysql-db
+    ports:
+      # 将后端的 8080 端口映射到主机的 8080
+      - "0.0.0.0:8060:8060" 
+    environment:
+      - DB_HOST=mysql-db
+      - DB_PORT=3306
+      - DB_NAME=${DB_NAME:-model_service}
+      - DB_USER=root
+      - DB_PASSWORD=${DB_PASSWORD:-123456}
+    volumes:
+      - ./llmproxy/logs:/app/logs
+    networks:
+      - my-app-network
+
+  # 【新增】Vue.js 前端应用服务
+#  vue-app:
+#    build:
+#      context: ./llm_forntend # 指定前端项目的构建上下文
+#    container_name: llmproxy-vue-container
+#    restart: always
+#    ports:
+#      # 将主机的 80 端口映射到容器的 3000 端口
+#      # 这样你就可以通过 http://localhost 访问前端了
+#      - "0.0.0.0:8070:3000"
+#    depends_on:
+#      - springboot-app # 确保后端先启动
+#    environment:
+#      # 这个环境变量会被 entrypoint.sh 读取
+#      - VUE_APP_API_URL=http://host.docker.internal:8060
+#    extra_hosts:
+#      - "host.docker.internal:host-gateway"
+#    networks:
+#      - my-app-network
+
+# 定义 Docker 网络 (保持不变)
+networks:
+  my-app-network:
+    driver: bridge
+
+# 定义 Docker Volume 用于数据持久化 (保持不变)
+volumes:
+  mysql-data:
