@@ -9,11 +9,14 @@ public class ModelResponse {
     private Integer id;
     private String displayName;
     private String modelIdentifier;
-    private String urlBase;
     // 注意：不返回 apiKey
     private List<String> capabilities;
     private Integer priority;
     private Integer status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    // 从关联的 Provider 获取的字段
+    private String providerName;
+    private String urlBase;
 }

@@ -1,21 +1,21 @@
 package cn.tyt.llmproxy.common.domain;
 
-import cn.tyt.llmproxy.entity.Admin;
+import cn.tyt.llmproxy.entity.User; // 引入 User
 import lombok.Getter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
 
-
-@Getter
 public class LoginUser implements UserDetails {
 
-    private final Admin admin;
-    private final Collection<? extends GrantedAuthority> authorities; // 权限信息
+    // 提供获取 User 对象的方法
+    @Getter
+    private final User user; // 从 Admin 改为 User
+    private final Collection<? extends GrantedAuthority> authorities;
 
-    public LoginUser(Admin admin, Collection<? extends GrantedAuthority> authorities) {
-        this.admin = admin;
+    public LoginUser(User user, Collection<? extends GrantedAuthority> authorities) {
+        this.user = user;
         this.authorities = authorities;
     }
 
@@ -26,31 +26,34 @@ public class LoginUser implements UserDetails {
 
     @Override
     public String getPassword() {
-        return admin.getPasswordHash();
+        return user.getPasswordHash();
     }
 
     @Override
     public String getUsername() {
-        return admin.getUsername();
+        return user.getUsername();
     }
 
+    // 以下方法可以根据 user.status 来实现
     @Override
     public boolean isAccountNonExpired() {
-        return true; // 可以根据业务逻辑判断
+        return true;
     }
 
     @Override
     public boolean isAccountNonLocked() {
-        return admin.getStatus() == 1; // 假设 status=1 表示账户未锁定
+        return User.STATUS_ACTIVE.equals(user.getStatus());
     }
+
+
 
     @Override
     public boolean isCredentialsNonExpired() {
-        return true; // 可以根据业务逻辑判断
+        return true;
     }
 
     @Override
     public boolean isEnabled() {
-        return admin.getStatus() == 1; // 假设 status=1 表示账户启用
+        return User.STATUS_ACTIVE.equals(user.getStatus());
     }
 }

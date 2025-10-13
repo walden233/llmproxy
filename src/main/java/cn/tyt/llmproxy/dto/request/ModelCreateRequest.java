@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import java.util.List;
+import java.util.Map;
 
 @Data
 public class ModelCreateRequest {
@@ -17,11 +18,14 @@ public class ModelCreateRequest {
 
     private String urlBase;
 
-    @NotBlank(message = "API Key不能为空")
     private String apiKey;
 
     @NotEmpty(message = "模型能力列表不能为空")
     private List<String> capabilities; // e.g., ["text-to-text"]
+
+    private Map<String, Object> pricing;
+    private String providerName;
+    private Integer providerId;
 
     @NotNull(message = "优先级不能为空")
     @Min(value = 1, message = "优先级最小为1")

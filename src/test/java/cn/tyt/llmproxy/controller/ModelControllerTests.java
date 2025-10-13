@@ -1,27 +1,21 @@
 package cn.tyt.llmproxy.controller; // 确保包名正确
 
 import cn.tyt.llmproxy.common.domain.Result;
-import cn.tyt.llmproxy.dto.request.AdminLoginRequest;
-import cn.tyt.llmproxy.dto.request.AdminRegisterRequest;
+import cn.tyt.llmproxy.dto.request.UserLoginRequest;
 import cn.tyt.llmproxy.dto.request.ModelCreateRequest;
 import cn.tyt.llmproxy.dto.request.ModelStatusUpdateRequest;
 import cn.tyt.llmproxy.dto.request.ModelUpdateRequest;
-import cn.tyt.llmproxy.dto.response.AdminLoginResponse;
+import cn.tyt.llmproxy.dto.response.UserLoginResponse;
 import cn.tyt.llmproxy.dto.response.ModelResponse;
 import cn.tyt.llmproxy.entity.LlmModel;
-import cn.tyt.llmproxy.mapper.AdminMapper;
 import cn.tyt.llmproxy.mapper.LlmModelMapper;
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.core.type.TypeReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.test.annotation.Rollback;
 import org.springframework.test.web.servlet.MvcResult;
 
 
@@ -63,7 +57,7 @@ public class ModelControllerTests extends BaseTest {
 //                        .content(objectMapper.writeValueAsString(registerRequest)))
 //                .andExpect(status().isOk());
 
-        AdminLoginRequest loginRequest = new AdminLoginRequest();
+        UserLoginRequest loginRequest = new UserLoginRequest();
         loginRequest.setUsername(username);
         loginRequest.setPassword(password);
 
@@ -74,7 +68,7 @@ public class ModelControllerTests extends BaseTest {
                 .andReturn();
 
         String responseString = loginResult.getResponse().getContentAsString();
-        Result<AdminLoginResponse> result = objectMapper.readValue(responseString, new TypeReference<Result<AdminLoginResponse>>() {});
+        Result<UserLoginResponse> result = objectMapper.readValue(responseString, new TypeReference<Result<UserLoginResponse>>() {});
         this.authToken = "Bearer " + result.getData().getToken();
     }
 

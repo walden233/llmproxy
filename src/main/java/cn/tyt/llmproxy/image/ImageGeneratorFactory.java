@@ -1,5 +1,6 @@
 package cn.tyt.llmproxy.image;
 
+import cn.tyt.llmproxy.dto.LlmModelConfigDto;
 import cn.tyt.llmproxy.entity.LlmModel;
 
 public class ImageGeneratorFactory {
@@ -11,7 +12,7 @@ public class ImageGeneratorFactory {
      * @return An instance of a class that implements ImageGeneratorService.
      * @throws IllegalArgumentException if the model identifier is not supported.
      */
-    public static ImageGeneratorService createGenerator(LlmModel model) {
+    public static ImageGeneratorService createGenerator(LlmModelConfigDto model) {
         String modelIdentifier = model.getModelIdentifier();
 
         if (modelIdentifier == null || modelIdentifier.trim().isEmpty()) {

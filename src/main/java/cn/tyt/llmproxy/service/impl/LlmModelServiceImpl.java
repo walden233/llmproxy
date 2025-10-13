@@ -1,5 +1,9 @@
 package cn.tyt.llmproxy.service.impl;
 
+import cn.tyt.llmproxy.entity.Provider;
+import cn.tyt.llmproxy.entity.ProviderKey;
+import cn.tyt.llmproxy.mapper.ProviderKeyMapper;
+import cn.tyt.llmproxy.mapper.ProviderMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -28,11 +32,40 @@ public class LlmModelServiceImpl implements ILlmModelService {
 
     @Autowired
     private LlmModelMapper llmModelMapper;
+    @Autowired
+    private ProviderMapper providerMapper;
+    @Autowired
+    private ProviderKeyMapper providerKeyMapper;
 
+
+
+    /**
+     * 辅助方法：根据名称查找 Provider，如果不存在则创建
+     */
+    private Provider getOrCreateProvider(String name, String urlBase) {
+        Provider provider = providerMapper.selectOne(new LambdaQueryWrapper<Provider>()
+                .eq(Provider::getName, name));
+
+        if (provider == null) {
+            // 如果 Provider 不存在，则创建新的
+            provider = new Provider();
+            provider.setName(name);
+            provider.setUrlBase(urlBase);
+            providerMapper.insert(provider);
+        }
+        return provider;
+    }
+    /**
+     * 创建模型（一站式）
+     * 1. 查找或创建 Provider
+     * 2. 创建 LlmModel 并关联 Provider
+     * 3. 创建 ProviderKey 并关联 Provider
+     * 整个过程是事务性的
+     */
     @Override
     @Transactional
     public ModelResponse createModel(ModelCreateRequest request) {
-        // 校验 modelIdentifier 是否唯一
+        // 校验 modelIdentifier 唯一性
         if (llmModelMapper.selectOne(new LambdaQueryWrapper<LlmModel>()
                 .eq(LlmModel::getModelIdentifier, request.getModelIdentifier())) != null) {
             throw new RuntimeException("模型标识 (Model Identifier) 已存在: " + request.getModelIdentifier());
@@ -46,16 +79,35 @@ public class LlmModelServiceImpl implements ILlmModelService {
                 }
             }
         }
-
+        // 2. 创建 LlmModel 实体
         LlmModel model = new LlmModel();
-        BeanUtils.copyProperties(request, model); // 属性名一致的会自动拷贝
-        model.setStatus(StatusEnum.AVAILABLE.getCode()); // 新建模型默认为上线状态
-        model.setCreatedAt(LocalDateTime.now());
-        model.setUpdatedAt(LocalDateTime.now());
+        BeanUtils.copyProperties(request, model);
 
+        Provider provider;
+        // 1. 获取或创建 Provider
+        if(request.getProviderId()!=null){
+            provider = providerMapper.selectById(request.getProviderId());
+            if(provider!=null)
+                model.setProviderId(provider.getId());
+        }
+        else if(request.getProviderName()!=null){
+            provider = getOrCreateProvider(request.getProviderName(), request.getUrlBase());
+            model.setProviderId(provider.getId()); // 关联 Provider
+            if(request.getApiKey()!=null){
+                ProviderKey providerKey = new ProviderKey();
+                providerKey.setProviderId(provider.getId()); // 关联 Provider
+                providerKey.setApiKey(request.getApiKey());
+                providerKey.setStatus(ProviderKey.STATUS_ACTIVE);
+                providerKeyMapper.insert(providerKey);
+            }
+        }
+        model.setStatus(StatusEnum.AVAILABLE.getCode());
         llmModelMapper.insert(model);
+
+        // 4. 组装并返回 Response
         return convertToResponse(model);
     }
+
 
     @Override
     public ModelResponse getModelById(Integer id) {
@@ -151,13 +203,13 @@ public class LlmModelServiceImpl implements ILlmModelService {
         if (StringUtils.hasText(request.getDisplayName())) {
             existingModel.setDisplayName(request.getDisplayName());
         }
-        if (StringUtils.hasText(request.getUrlBase())) {
-            existingModel.setUrlBase(request.getUrlBase());
-        }
-        // API Key: 只有当请求中明确提供了 apiKey 时才更新
-        if (StringUtils.hasText(request.getApiKey())) {
-            existingModel.setApiKey(request.getApiKey());
-        }
+//        if (StringUtils.hasText(request.getUrlBase())) {
+//            existingModel.setUrlBase(request.getUrlBase());
+//        }
+//        // API Key: 只有当请求中明确提供了 apiKey 时才更新
+//        if (StringUtils.hasText(request.getApiKey())) {
+//            existingModel.setApiKey(request.getApiKey());
+//        }
         if (request.getCapabilities() != null && !request.getCapabilities().isEmpty()) {
             for (String cap : request.getCapabilities()) {
                 if (!ModelCapabilityEnum.isValid(cap)) {
@@ -168,6 +220,12 @@ public class LlmModelServiceImpl implements ILlmModelService {
         }
         if (request.getPriority() != null) {
             existingModel.setPriority(request.getPriority());
+        }
+        if (request.getPricing()!=null){
+            existingModel.setPricing(request.getPricing());
+        }
+        if(request.getProviderId()!=null){
+            existingModel.setProviderId(request.getProviderId());
         }
 
         existingModel.setUpdatedAt(LocalDateTime.now());
@@ -205,6 +263,11 @@ public class LlmModelServiceImpl implements ILlmModelService {
         if (model == null) return null;
         ModelResponse response = new ModelResponse();
         BeanUtils.copyProperties(model, response);
+        Provider provider = providerMapper.selectById(model.getProviderId());
+        if(provider!=null){
+            response.setProviderName(provider.getName());
+            response.setUrlBase(provider.getUrlBase());
+        }
         return response;
     }
 }

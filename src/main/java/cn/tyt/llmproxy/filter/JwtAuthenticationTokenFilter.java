@@ -21,7 +21,7 @@ import java.io.IOException;
 public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
 
     @Autowired
-    private UserDetailsService userDetailsService; // 这里会注入 AdminServiceImpl
+    private UserDetailsService userDetailsService; // 这里会注入 UserServiceImpl
 
     @Autowired
     private JwtTokenUtil jwtTokenUtil;

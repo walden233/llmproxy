@@ -3,23 +3,21 @@ package cn.tyt.llmproxy.entity;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
-import lombok.NoArgsConstructor;
-
 import java.time.LocalDateTime;
 
 @Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-@TableName("access_keys")
-public class AccessKey {
+@TableName("provider_keys")
+public class ProviderKey {
+    // 状态常量
+    public static final Integer STATUS_ACTIVE = 1;
+    public static final Integer STATUS_INACTIVE = 0;
+
     @TableId(type = IdType.AUTO)
     private Integer id;
-    private String keyValue;
-    private Integer userId;
-    private Boolean isActive; // 使用 Boolean 映射 TINYINT(1)
+    private Integer providerId;
+    private String apiKey;
+    private Integer status;
     private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 }

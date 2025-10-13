@@ -1,11 +1,10 @@
 package cn.tyt.llmproxy.controller;
 
-import cn.tyt.llmproxy.dto.request.AdminLoginRequest;
+import cn.tyt.llmproxy.dto.request.UserLoginRequest;
 import cn.tyt.llmproxy.dto.request.ChatRequest_dto;
 import cn.tyt.llmproxy.dto.request.ImageGenerationRequest;
 import cn.tyt.llmproxy.dto.request.ImageInput;
-import cn.tyt.llmproxy.dto.response.AdminLoginResponse;
-import cn.tyt.llmproxy.mapper.AdminMapper;
+import cn.tyt.llmproxy.dto.response.UserLoginResponse;
 import com.fasterxml.jackson.core.type.TypeReference;
 import cn.tyt.llmproxy.common.domain.Result;
 
@@ -39,7 +38,7 @@ public class ProxyControllerTest extends BaseTest {
         String username = "test";
         String password = "password";
 
-        AdminLoginRequest loginRequest = new AdminLoginRequest();
+        UserLoginRequest loginRequest = new UserLoginRequest();
         loginRequest.setUsername(username);
         loginRequest.setPassword(password);
 
@@ -50,7 +49,7 @@ public class ProxyControllerTest extends BaseTest {
                 .andReturn();
 
         String responseString = loginResult.getResponse().getContentAsString();
-        Result<AdminLoginResponse> result = objectMapper.readValue(responseString, new TypeReference<Result<AdminLoginResponse>>() {});
+        Result<UserLoginResponse> result = objectMapper.readValue(responseString, new TypeReference<Result<UserLoginResponse>>() {});
         this.authToken = "Bearer " + result.getData().getToken();
     }
 

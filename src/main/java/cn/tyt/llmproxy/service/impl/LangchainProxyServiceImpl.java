@@ -3,6 +3,9 @@ package cn.tyt.llmproxy.service.impl;
 import cn.tyt.llmproxy.common.enums.ModelCapabilityEnum;
 import cn.tyt.llmproxy.common.enums.StatusEnum;
 import cn.tyt.llmproxy.context.ModelUsageContext;
+import cn.tyt.llmproxy.dto.LlmModelConfigDto;
+import cn.tyt.llmproxy.entity.Provider;
+import cn.tyt.llmproxy.entity.ProviderKey;
 import cn.tyt.llmproxy.image.ImageGeneratorFactory;
 import cn.tyt.llmproxy.image.ImageGeneratorService;
 import cn.tyt.llmproxy.dto.request.ChatRequest_dto;
@@ -11,6 +14,8 @@ import cn.tyt.llmproxy.dto.response.ChatResponse_dto;
 import cn.tyt.llmproxy.dto.response.ImageGenerationResponse;
 import cn.tyt.llmproxy.entity.LlmModel;
 import cn.tyt.llmproxy.mapper.LlmModelMapper;
+import cn.tyt.llmproxy.mapper.ProviderKeyMapper;
+import cn.tyt.llmproxy.mapper.ProviderMapper;
 import cn.tyt.llmproxy.service.ILangchainProxyService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import dev.langchain4j.data.image.Image;
@@ -22,6 +27,7 @@ import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -37,6 +43,10 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
 
     @Autowired
     private LlmModelMapper llmModelMapper;
+    @Autowired
+    private ProviderMapper providerMapper;
+    @Autowired
+    private ProviderKeyMapper providerKeyMapper;
 
 //    // 简单内存会话存储，生产环境可能需要 Redis 或其他持久化存储
 //    private final Map<String, ChatMemory> chatMemories = new ConcurrentHashMap<>();
@@ -52,9 +62,10 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
                 ? ModelCapabilityEnum.IMAGE_TO_TEXT.getValue()
                 : ModelCapabilityEnum.TEXT_TO_TEXT.getValue();
         LlmModel selectedModel = selectModel(request.getModelInternalId(), request.getModelIdentifier(), requiredCapability);
-        log.info("使用模型进行聊天: {} (ID: {}), 所需能力: {}", selectedModel.getDisplayName(), selectedModel.getModelIdentifier(), requiredCapability);
-        ModelUsageContext.set(selectedModel.getId(), selectedModel.getModelIdentifier());
-        OpenAiChatModel chatModel = buildChatLanguageModel(selectedModel, request.getOptions());
+        LlmModelConfigDto modelConfig = buildModelConfig(selectedModel);
+        log.info("使用模型进行聊天: {} (ID: {}), 所需能力: {}", modelConfig.getDisplayName(), modelConfig.getModelIdentifier(), requiredCapability);
+        ModelUsageContext.set(modelConfig.getId(), modelConfig.getModelIdentifier());
+        OpenAiChatModel chatModel = buildChatLanguageModel(modelConfig, request.getOptions());
 
         List<ChatMessage> messages = new ArrayList<>();
         // 添加系统消息 (如果需要)
@@ -137,7 +148,7 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
             throw new RuntimeException("模型未能生成响应。");
         }
 
-        return new ChatResponse_dto(response.aiMessage().text(), selectedModel.getModelIdentifier());
+        return new ChatResponse_dto(response.aiMessage().text(), modelConfig.getModelIdentifier());
     }
 
 
@@ -148,10 +159,11 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
                 ? ModelCapabilityEnum.IMAGE_TO_IMAGE.getValue()
                 : ModelCapabilityEnum.TEXT_TO_IMAGE.getValue();
         LlmModel selectedModel = selectModel(request.getModelInternalId(), request.getModelIdentifier(), requiredCapability);
-        log.info("使用模型生成图像: {} (ID: {})", selectedModel.getDisplayName(), selectedModel.getModelIdentifier());
-        ModelUsageContext.set(selectedModel.getId(), selectedModel.getModelIdentifier());
+        LlmModelConfigDto modelConfig = buildModelConfig(selectedModel);
+        log.info("使用模型生成图像: {} (ID: {})", modelConfig.getDisplayName(), modelConfig.getModelIdentifier());
+        ModelUsageContext.set(modelConfig.getId(), modelConfig.getModelIdentifier());
         ImageGenerationResponse result;
-        ImageGeneratorService generator = ImageGeneratorFactory.createGenerator(selectedModel);
+        ImageGeneratorService generator = ImageGeneratorFactory.createGenerator(modelConfig);
         if(requiredCapability.equals(ModelCapabilityEnum.TEXT_TO_IMAGE.getValue()))
             result = generator.generateImage(request);
         else
@@ -197,6 +209,22 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
         }
     }
 
+    private LlmModelConfigDto buildModelConfig(LlmModel model){
+        Provider provider = providerMapper.selectById(model.getProviderId());
+        if(provider==null)
+            throw new RuntimeException("没有找到" + model.getModelIdentifier() + " 的提供商");
+        //todo:需要更复杂的apikey选择策略
+        ProviderKey providerKey = providerKeyMapper.selectOne(
+                new LambdaQueryWrapper<ProviderKey>().eq(ProviderKey::getProviderId, provider.getId())
+        );
+        LlmModelConfigDto modelConfig = new LlmModelConfigDto();
+        BeanUtils.copyProperties(model, modelConfig);
+        modelConfig.setProviderName(provider.getName());
+        modelConfig.setUrlBase(provider.getUrlBase());
+        modelConfig.setApiKey(providerKey.getApiKey());
+        return modelConfig;
+    }
+
     /**
      * (辅助方法) 简单地从 Base64 字符串中检测 MIME 类型。
      * 实际应用中可能需要更可靠的库或方法。
@@ -218,7 +246,7 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
         return "application/octet-stream";
     }
 
-    private OpenAiChatModel buildChatLanguageModel(LlmModel modelConfig, Map<String, Object> options) {
+    private OpenAiChatModel buildChatLanguageModel(LlmModelConfigDto modelConfig, Map<String, Object> options) {
 
         // 目前只支持 OpenAI 兼容的模型，未来可以在这里扩展
         // if (isClaudeModel(modelConfig.getModelIdentifier())) { ... }

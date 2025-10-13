@@ -2,20 +2,15 @@ package cn.tyt.llmproxy;
 
 import cn.tyt.llmproxy.common.domain.Result;
 import cn.tyt.llmproxy.controller.BaseTest;
-import cn.tyt.llmproxy.dto.request.AdminLoginRequest;
-import cn.tyt.llmproxy.dto.request.AdminRegisterRequest;
+import cn.tyt.llmproxy.dto.request.UserLoginRequest;
+import cn.tyt.llmproxy.dto.request.UserRegisterRequest;
 import cn.tyt.llmproxy.dto.request.ModelCreateRequest;
-import cn.tyt.llmproxy.dto.response.AdminLoginResponse;
-import cn.tyt.llmproxy.entity.Admin;
-import cn.tyt.llmproxy.mapper.AdminMapper;
+import cn.tyt.llmproxy.dto.response.UserLoginResponse;
 import com.fasterxml.jackson.core.type.TypeReference;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -38,7 +33,7 @@ public class InitDB extends BaseTest {
     @Rollback(value = false)
     void registerAndGetToken() throws Exception {
         //注册
-        AdminRegisterRequest registerRequest = new AdminRegisterRequest();
+        UserRegisterRequest registerRequest = new UserRegisterRequest();
         registerRequest.setUsername(testUsername);
         registerRequest.setPassword(testPassword);
         registerRequest.setEmail(testEmail);
@@ -53,7 +48,7 @@ public class InitDB extends BaseTest {
 
 
         //获取token
-        AdminLoginRequest loginRequest = new AdminLoginRequest();
+        UserLoginRequest loginRequest = new UserLoginRequest();
         loginRequest.setUsername(testUsername);
         loginRequest.setPassword(testPassword);
         MvcResult loginResult = mockMvc.perform(post("/v1/auth/login")
@@ -62,7 +57,7 @@ public class InitDB extends BaseTest {
                 .andExpect(status().isOk())
                 .andReturn();
         String responseString = loginResult.getResponse().getContentAsString();
-        Result<AdminLoginResponse> result = objectMapper.readValue(responseString, new TypeReference<Result<AdminLoginResponse>>() {});
+        Result<UserLoginResponse> result = objectMapper.readValue(responseString, new TypeReference<Result<UserLoginResponse>>() {});
         this.authToken = "Bearer " + result.getData().getToken();
     }
 
@@ -71,7 +66,7 @@ public class InitDB extends BaseTest {
     @Rollback(value = false)
     void creatModel() throws Exception {
         //获取token
-        AdminLoginRequest loginRequest = new AdminLoginRequest();
+        UserLoginRequest loginRequest = new UserLoginRequest();
         loginRequest.setUsername(testUsername);
         loginRequest.setPassword(testPassword);
         MvcResult loginResult = mockMvc.perform(post("/v1/auth/login")
@@ -80,7 +75,7 @@ public class InitDB extends BaseTest {
                 .andExpect(status().isOk())
                 .andReturn();
         String responseString = loginResult.getResponse().getContentAsString();
-        Result<AdminLoginResponse> result = objectMapper.readValue(responseString, new TypeReference<Result<AdminLoginResponse>>() {});
+        Result<UserLoginResponse> result = objectMapper.readValue(responseString, new TypeReference<Result<UserLoginResponse>>() {});
         this.authToken = "Bearer " + result.getData().getToken();
 
 

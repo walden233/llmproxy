@@ -1,14 +1,14 @@
 package cn.tyt.llmproxy.config;
 
+import cn.tyt.llmproxy.common.enums.RoleEnum;
 import cn.tyt.llmproxy.filter.JwtAuthenticationTokenFilter;
-import cn.tyt.llmproxy.service.IAdminService;
 import cn.tyt.llmproxy.security.*;
+import cn.tyt.llmproxy.service.IUserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -32,8 +32,7 @@ import java.util.Arrays;
 public class SecurityConfig {
 
     @Autowired
-    private IAdminService adminService; // UserDetailsService 实现
-
+    private IUserService userService; // 注入 IUserService
     @Autowired
     private JwtAuthenticationTokenFilter jwtAuthenticationTokenFilter;
     @Autowired
@@ -75,20 +74,24 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                // 关闭 CSRF，因为我们使用 JWT，是无状态的
                 .csrf(AbstractHttpConfigurer::disable)
-                // 不通过 Session 获取 SecurityContext
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // 对于登录和注册接口，允许匿名访问
+                        // 1. 公开访问的端点
                         .requestMatchers("/v1/auth/login", "/v1/auth/register", "/v1/chat", "/v1/generate-image").permitAll()
-//                        // 允许 OPTIONS 请求 (用于CORS预检)
-//                        .requestMatchers(HttpMethod.OPTIONS).permitAll()
-                        // 除上面外的所有请求全部需要鉴权认证
+                        // 2. 仅限 MODEL_ADMIN 和 ROOT_ADMIN 访问的模型管理端点
+                        .requestMatchers("/v1/models/**").hasAnyRole(RoleEnum.MODEL_ADMIN.getValue(), RoleEnum.ROOT_ADMIN.getValue())
+
+//                        // 3. 仅限 ROOT_ADMIN 访问的用户管理/权限分配端点 (假设有)
+//                        .requestMatchers("/v1/admin/users/**").hasRole(RoleEnum.ROOT_ADMIN.getValue())
+
+                        // 4. 允许 OPTIONS 请求 (用于CORS预检)
+                        .requestMatchers(HttpMethod.OPTIONS).permitAll()
+
+                        // 5. 其他所有需要认证的请求 (例如 /v1/auth/access-keys, /v1/me/** 等)
                         .anyRequest().authenticated()
                 )
-                // 添加 JWT filter
-                .addFilterBefore(jwtAuthenticationTokenFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(jwtAuthenticationTokenFilter, UsernamePasswordAuthenticationFilter.class)//这个比上面的先执行
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint(unauthorizedHandler)
                         .accessDeniedHandler(accessDeniedHandler)
