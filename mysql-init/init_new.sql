@@ -21,7 +21,7 @@ CREATE TABLE `users` (
 CREATE TABLE `providers` (
                              `id` INT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
                              `name` VARCHAR(50) NOT NULL UNIQUE COMMENT '提供商名称, 如 OpenAI, Aliyun',
-                             `api_base_url` VARCHAR(255) COMMENT '提供商API的基础URL',
+                             `url_base` VARCHAR(255) COMMENT '提供商API的基础URL',
                              `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                              `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
 ) ENGINE=InnoDB COMMENT='模型提供商表';

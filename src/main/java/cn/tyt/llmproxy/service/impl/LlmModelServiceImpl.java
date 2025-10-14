@@ -90,10 +90,10 @@ public class LlmModelServiceImpl implements ILlmModelService {
             if(provider!=null)
                 model.setProviderId(provider.getId());
         }
-        else if(request.getProviderName()!=null){
+        else if(StringUtils.hasText(request.getProviderName())){
             provider = getOrCreateProvider(request.getProviderName(), request.getUrlBase());
             model.setProviderId(provider.getId()); // 关联 Provider
-            if(request.getApiKey()!=null){
+            if(StringUtils.hasText(request.getApiKey())){
                 ProviderKey providerKey = new ProviderKey();
                 providerKey.setProviderId(provider.getId()); // 关联 Provider
                 providerKey.setApiKey(request.getApiKey());

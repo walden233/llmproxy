@@ -24,7 +24,7 @@ public class AdminInitializer implements CommandLineRunner {
     @Override
     public void run(String... args) throws Exception {
         // 检查 root_admin 是否已存在
-        if (userMapper.selectOne(new LambdaQueryWrapper<User>().eq(User::getRole, RoleEnum.ROOT_ADMIN.getValue())) == null) {
+        if (userMapper.selectCount(new LambdaQueryWrapper<User>().eq(User::getRole, RoleEnum.ROOT_ADMIN.getValue())) == 0) {
             System.out.println("Creating initial root_admin user...");
             User rootAdmin = new User();
             rootAdmin.setUsername("root");

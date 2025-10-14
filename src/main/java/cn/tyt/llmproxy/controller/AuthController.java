@@ -85,7 +85,7 @@ public class AuthController {
      * @return 操作成功的响应
      */
     @PostMapping("/assign-role")
-    @PreAuthorize("hasRole('root_admin')")
+    @PreAuthorize("hasAuthority('root_admin')")
     public Result<?> assignRole(@Valid @RequestBody UserAssignRoleRequest request) {
         userService.assignRole(request.getUserId(), request.getRole());
         return Result.success("角色分配成功");

@@ -12,20 +12,18 @@ import java.util.Map;
 public class ModelCreateRequest {
     @NotBlank(message = "模型显示名称不能为空")
     private String displayName;
-
     @NotBlank(message = "模型标识不能为空")
     private String modelIdentifier;
-
-    private String urlBase;
-
-    private String apiKey;
-
     @NotEmpty(message = "模型能力列表不能为空")
     private List<String> capabilities; // e.g., ["text-to-text"]
-
+    //todo:定义pricing
     private Map<String, Object> pricing;
+
+
     private String providerName;
     private Integer providerId;
+    private String urlBase;
+    private String apiKey;
 
     @NotNull(message = "优先级不能为空")
     @Min(value = 1, message = "优先级最小为1")

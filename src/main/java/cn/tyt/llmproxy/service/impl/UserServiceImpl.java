@@ -70,7 +70,7 @@ public class UserServiceImpl implements IUserService {
         user.setPasswordHash(getPasswordEncoder().encode(request.getPassword()));
         user.setEmail(request.getEmail());
         // 注册用户默认为 'user' 角色
-        user.setRole(RoleEnum.ROOT_ADMIN.getValue());
+        user.setRole(RoleEnum.USER.getValue());
         user.setBalance(new BigDecimal("0.00")); // 初始余额为0
         user.setStatus(User.STATUS_ACTIVE);
         user.setCreatedAt(LocalDateTime.now());
@@ -113,10 +113,10 @@ public class UserServiceImpl implements IUserService {
 
     @Override
     @Transactional
-    @PreAuthorize("hasRole('root_admin')") // **权限控制**
+    @PreAuthorize("hasAuthority('root_admin')") // **权限控制**
     public void assignRole(Integer userId, String role) {
         // 校验角色是否合法
-        if (!RoleEnum.MODEL_ADMIN.getValue().equals(role) && !RoleEnum.USER.getValue().equals(role)) {
+        if (!RoleEnum.contains(role)) {
             throw new IllegalArgumentException("无效的角色: " + role);
         }
 

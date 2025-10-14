@@ -17,6 +17,7 @@ public class ModelResponse {
     private LocalDateTime updatedAt;
 
     // 从关联的 Provider 获取的字段
+    private String providerId;
     private String providerName;
     private String urlBase;
 }

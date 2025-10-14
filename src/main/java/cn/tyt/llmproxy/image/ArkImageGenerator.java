@@ -10,6 +10,7 @@ import com.volcengine.ark.runtime.model.images.generation.ImagesResponse;
 import com.volcengine.ark.runtime.service.ArkService;
 import okhttp3.ConnectionPool;
 import okhttp3.Dispatcher;
+import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -50,7 +51,7 @@ public class ArkImageGenerator implements ImageGeneratorService {
             throw new IllegalArgumentException("原始图像为空");
 
         String baseImageUrl;
-        if(img.getUrl()!=null)
+        if(StringUtils.hasText(img.getUrl()))
             baseImageUrl = img.getUrl();
         else {
             baseImageUrl = img.getBase64();
