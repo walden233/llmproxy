@@ -143,7 +143,7 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
         ChatRequest chatRequest = builder.messages(messages).build();
         //可能会抛出各种异常比如 InvalidRequestException、api余额不足等等，不捕获
         ChatResponse response = chatModel.chat(chatRequest);
-
+        //todo:添加计费功能
         if (response == null || response.aiMessage() == null) {
             throw new RuntimeException("模型未能生成响应。");
         }

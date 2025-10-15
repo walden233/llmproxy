@@ -8,6 +8,7 @@ import cn.tyt.llmproxy.entity.AccessKey;
 import cn.tyt.llmproxy.entity.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 public interface IUserService extends UserDetailsService {
@@ -56,4 +57,6 @@ public interface IUserService extends UserDetailsService {
      * @param request 包含旧密码和新密码的请求体
      */
     void changePassword(UserChangePasswordRequest request);
+
+    void creditUserBalance(Integer userId, BigDecimal amount);
 }

@@ -10,6 +10,5 @@ curl -X POST \
         "providerName": "deepseek",
         "urlBase": "https://api.deepseek.com/v1",
         "apiKey": "",
-
         "priority": 5
     }'

@@ -82,6 +82,7 @@ CREATE TABLE `orders` (
                           `user_id` INT NOT NULL COMMENT '用户ID',
                           `amount` DECIMAL(10, 2) NOT NULL COMMENT '充值金额',
                           `status` ENUM('PENDING', 'COMPLETED', 'FAILED') NOT NULL DEFAULT 'PENDING' COMMENT '订单状态',
+                          `version` INT NOT NULL DEFAULT 1 COMMENT '版本号，用于乐观锁',
                           `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                           `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
 ) ENGINE=InnoDB COMMENT='用户充值订单表';
@@ -99,3 +100,16 @@ CREATE TABLE `async_jobs` (
                               `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                               `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
 ) ENGINE=InnoDB COMMENT='异步任务表';
+
+CREATE TABLE `model_daily_stats` (
+                                     `id` BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
+                                     `model_id` INT NOT NULL COMMENT '模型ID，关联模型表的主键',
+                                     `model_identifier` VARCHAR(100) NOT NULL COMMENT '模型唯一标识，冗余字段方便查询',
+                                     `stat_date` DATE NOT NULL COMMENT '统计日期',
+                                     `total_requests` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '当天总请求数',
+                                     `success_count` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '当天成功请求数',
+                                     `failure_count` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '当天失败请求数',
+                                     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                     `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                                     UNIQUE KEY `uk_model_date` (`model_id`, `stat_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='模型每日用量统计表';

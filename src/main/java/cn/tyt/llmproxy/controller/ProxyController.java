@@ -34,6 +34,8 @@ public class ProxyController {
         return Result.success(response);
     }
 
+    // TODO:实现异步任务接口并引入rabbitMQ
+
     // TODO: 实现流式聊天接口
     // @PostMapping(value = "/stream-chat", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     // public SseEmitter streamChat(@Valid @RequestBody ChatRequest request) {

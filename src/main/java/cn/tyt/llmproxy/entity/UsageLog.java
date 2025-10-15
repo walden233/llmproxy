@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 
 @Data
 @TableName("usage_logs")
+//todo:使用mongoDB记录
 public class UsageLog {
     @TableId(type = IdType.AUTO)
     private Long id;

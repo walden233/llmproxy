@@ -98,6 +98,7 @@ public class UserServiceImpl implements IUserService {
     }
 
     @Override
+    //todo:添加redis缓存
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         User user = userMapper.selectOne(new LambdaQueryWrapper<User>().eq(User::getUsername, username));
         if (user == null) {
@@ -138,7 +139,7 @@ public class UserServiceImpl implements IUserService {
     @Override
     public AccessKey createAccessKey() {
         User currentUser = getCurrentUser();
-        String key = "sk-" + UUID.randomUUID().toString().replace("-", "");
+        String key = "ak-" + UUID.randomUUID().toString().replace("-", "");
         AccessKey newAccessKey = new AccessKey();
         newAccessKey.setKeyValue(key);
         newAccessKey.setUserId(currentUser.getId());
@@ -176,7 +177,16 @@ public class UserServiceImpl implements IUserService {
         currentUser.setUpdatedAt(LocalDateTime.now());
         userMapper.updateById(currentUser);
     }
-
+    @Override
+    public void creditUserBalance(Integer userId, BigDecimal amount) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            // 使用自定义的业务异常更佳
+            throw new RuntimeException("User not found with id: " + userId);
+        }
+        user.setBalance(user.getBalance().add(amount));
+        userMapper.updateById(user);
+    }
     private User getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {

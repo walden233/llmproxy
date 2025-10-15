@@ -3,6 +3,7 @@ package cn.tyt.llmproxy.entity;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.Version;
 import lombok.Data;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -23,4 +24,6 @@ public class Order {
     private String status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    @Version
+    private Integer version; // 新增版本号字段
 }
