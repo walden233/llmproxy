@@ -59,4 +59,6 @@ public interface IUserService extends UserDetailsService {
     void changePassword(UserChangePasswordRequest request);
 
     void creditUserBalance(Integer userId, BigDecimal amount);
+
+    public User getCurrentUser();
 }

@@ -17,6 +17,7 @@ import cn.tyt.llmproxy.mapper.LlmModelMapper;
 import cn.tyt.llmproxy.mapper.ProviderKeyMapper;
 import cn.tyt.llmproxy.mapper.ProviderMapper;
 import cn.tyt.llmproxy.service.ILangchainProxyService;
+import cn.tyt.llmproxy.service.IUserService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import dev.langchain4j.data.image.Image;
 import dev.langchain4j.data.message.*;
@@ -33,6 +34,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.*;
 
@@ -47,12 +49,14 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
     private ProviderMapper providerMapper;
     @Autowired
     private ProviderKeyMapper providerKeyMapper;
+    @Autowired
+    private IUserService userService;
 
 //    // 简单内存会话存储，生产环境可能需要 Redis 或其他持久化存储
 //    private final Map<String, ChatMemory> chatMemories = new ConcurrentHashMap<>();
 
     @Override
-    public ChatResponse_dto chat(ChatRequest_dto request) {
+    public ChatResponse_dto chat(ChatRequest_dto request, Integer userId) {
         if(request.getImages()==null && request.getUserMessage()==null){
             throw new IllegalArgumentException("请求中必须包含图片或用户消息");
         }
@@ -143,16 +147,32 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
         ChatRequest chatRequest = builder.messages(messages).build();
         //可能会抛出各种异常比如 InvalidRequestException、api余额不足等等，不捕获
         ChatResponse response = chatModel.chat(chatRequest);
-        //todo:添加计费功能
         if (response == null || response.aiMessage() == null) {
             throw new RuntimeException("模型未能生成响应。");
         }
-
+        BigDecimal cost = calculateChatPrice(response,modelConfig);
+        //todo:使用工作队列处理扣费
+        userService.creditUserBalance(userId,cost);
         return new ChatResponse_dto(response.aiMessage().text(), modelConfig.getModelIdentifier());
+    }
+    private BigDecimal calculateChatPrice(ChatResponse response,LlmModelConfigDto modelConfig){
+        int inputTokensCount = response.metadata().tokenUsage().inputTokenCount();
+        int outputTokensCount = response.metadata().tokenUsage().outputTokenCount();
+        Map<String,Object> pricing = modelConfig.getPricing();
+
+        BigDecimal inputPrice = new BigDecimal(pricing.get("input").toString());
+        BigDecimal outputPrice = new BigDecimal(pricing.get("output").toString());
+
+        BigDecimal inputTokens = new BigDecimal(inputTokensCount);
+        BigDecimal outputTokens = new BigDecimal(outputTokensCount);
+
+        BigDecimal inputCost = inputTokens.multiply(inputPrice);
+        BigDecimal outputCost = outputTokens.multiply(outputPrice);
+
+        return inputCost.add(outputCost).negate();
     }
 
 
-    //暂未使用
     @Override
     public ImageGenerationResponse generateImage(ImageGenerationRequest request) {
         String requiredCapability = (request.getOriginImage() != null)

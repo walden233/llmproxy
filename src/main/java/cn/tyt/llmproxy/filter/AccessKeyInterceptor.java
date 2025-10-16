@@ -1,16 +1,15 @@
 package cn.tyt.llmproxy.filter;
 
+import cn.tyt.llmproxy.dto.AccessKeyInfo;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import cn.tyt.llmproxy.service.AccessKeyValidationService;
+import cn.tyt.llmproxy.service.AccessKeyService;
 import cn.tyt.llmproxy.common.domain.Result;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 import java.io.IOException;
@@ -19,9 +18,10 @@ import java.io.IOException;
 public class AccessKeyInterceptor implements HandlerInterceptor {
 
     public static final String ACCESS_KEY_HEADER = "ACCESS-KEY";
+    public static final String USER_ID_ATTRIBUTE = "userId";
 
     @Autowired
-    private AccessKeyValidationService accessKeyValidationService;
+    private AccessKeyService accessKeyService;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -35,15 +35,18 @@ public class AccessKeyInterceptor implements HandlerInterceptor {
             sendUnauthorizedResponse(response, "Unauthorized: Missing Access Key.");
             return false; // 直接拦截，不调用service
         }
-
-        // 只有当accessKey确定存在时，才调用被缓存的方法
-        if (accessKeyValidationService.isValid(accessKey)) {
-            return true; // Key有效，放行
+        AccessKeyInfo keyInfo = accessKeyService.getAccessKeyInfo(accessKey);
+        if(!keyInfo.isValid()){
+            sendUnauthorizedResponse(response, "Unauthorized: Invalid Access Key.");
+            return false;
         }
 
-        // Key存在但无效
-        sendUnauthorizedResponse(response, "Unauthorized: Invalid Access Key.");
-        return false; // 拦截请求
+        if(!keyInfo.isBalanceSufficient()){
+            sendUnauthorizedResponse(response, "账号余额不足");
+            return false;
+        }
+        request.setAttribute(USER_ID_ATTRIBUTE, keyInfo.getUserId());
+        return true;
     }
 
     // 提取一个私有方法来发送错误响应，避免代码重复

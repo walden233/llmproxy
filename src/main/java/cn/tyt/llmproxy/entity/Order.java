@@ -25,5 +25,5 @@ public class Order {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     @Version
-    private Integer version; // 新增版本号字段
+    private Integer version; // 用于乐观锁
 }

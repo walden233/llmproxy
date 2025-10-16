@@ -1,8 +1,8 @@
 curl -X POST \
   http://localhost:8060/v1/orders \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0IiwiaWF0IjoxNzYwNDI3ODg5LCJleHAiOjIwNzU3ODc4ODl9.lkZvrv838pmIBYxYeusG8jCQXDuA-kG8Vb0xFTfZKp4" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0IiwiaWF0IjoxNzYwNjA0ODExLCJleHAiOjIwNzU5NjQ4MTF9.qeqKAfT5WT60-kWiafv0_Qygtz9OQAp3Fw3PdhuE5JI" \
   -H "Content-Type: application/json" \
   -d '{
         "userId": 2,
-        "amount": 5.5
+        "amount": 100.1
     }'

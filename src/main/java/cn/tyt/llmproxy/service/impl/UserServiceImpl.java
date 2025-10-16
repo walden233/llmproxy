@@ -185,9 +185,12 @@ public class UserServiceImpl implements IUserService {
             throw new RuntimeException("User not found with id: " + userId);
         }
         user.setBalance(user.getBalance().add(amount));
-        userMapper.updateById(user);
+        int updatedRows = userMapper.updateById(user);
+        if (updatedRows == 0)
+            throw new RuntimeException("Failed to credit user balance due to concurrency conflict.");
     }
-    private User getCurrentUser() {
+    @Override
+    public User getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
             throw new IllegalStateException("No authenticated user found.");

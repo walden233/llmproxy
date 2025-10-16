@@ -5,15 +5,13 @@ import cn.tyt.llmproxy.dto.request.ChatRequest_dto;
 import cn.tyt.llmproxy.dto.request.ImageGenerationRequest;
 import cn.tyt.llmproxy.dto.response.ChatResponse_dto;
 import cn.tyt.llmproxy.dto.response.ImageGenerationResponse;
+import cn.tyt.llmproxy.filter.AccessKeyInterceptor;
 import cn.tyt.llmproxy.service.ILangchainProxyService;
 import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/v1")
@@ -23,8 +21,8 @@ public class ProxyController {
     private ILangchainProxyService langchainProxyService;
 
     @PostMapping("/chat")
-    public Result<ChatResponse_dto> chat(@Valid @RequestBody ChatRequest_dto request) {
-        ChatResponse_dto response = langchainProxyService.chat(request);
+    public Result<ChatResponse_dto> chat(@Valid @RequestBody ChatRequest_dto request, @RequestAttribute(AccessKeyInterceptor.USER_ID_ATTRIBUTE) Integer userId) {
+        ChatResponse_dto response = langchainProxyService.chat(request, userId);
         return Result.success(response);
     }
 

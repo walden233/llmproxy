@@ -10,9 +10,10 @@ CREATE TABLE `users` (
                          `username` VARCHAR(50) NOT NULL UNIQUE COMMENT '用户名',
                          `password_hash` VARCHAR(255) NOT NULL COMMENT 'Bcrypt加密后的密码哈希',
                          `email` VARCHAR(100) UNIQUE COMMENT '电子邮箱',
-                         `role` ENUM('ADMIN', 'USER') NOT NULL COMMENT '用户角色: ADMIN-管理员, USER-普通用户',
+                         `role` VARCHAR(100) NOT NULL COMMENT '用户角色: ADMIN-管理员, USER-普通用户',
                          `balance` DECIMAL(10, 4) NOT NULL DEFAULT 0.0000 COMMENT '用户账户余额',
                          `status` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '账户状态: 0-禁用, 1-可用',
+                         `version` INT NOT NULL DEFAULT 1 COMMENT '版本号，用于乐观锁',
                          `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                          `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
 ) ENGINE=InnoDB COMMENT='用户表';
