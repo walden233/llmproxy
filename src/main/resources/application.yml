@@ -15,10 +15,18 @@ spring:
     date-format: yyyy-MM-dd HH:mm:ss
     time-zone: GMT+8
   cache:
-    type: caffeine # 指定缓存类型
-    cache-names: api-keys # 预定义缓存名称
-    caffeine:
-      spec: maximumSize=1000,expireAfterWrite=15m # 最多缓存1000个key，写入15分钟后过期
+    redis:
+      key-prefix: llm_proxy
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 0
+#  cache:
+#    type: caffeine # 指定缓存类型
+#    cache-names: api-keys # 预定义缓存名称
+#    caffeine:
+#      spec: maximumSize=1000,expireAfterWrite=15m # 最多缓存1000个key，写入15分钟后过期
 
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml # ???XML??

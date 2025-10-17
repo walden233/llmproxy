@@ -1,8 +1,8 @@
 package cn.tyt.llmproxy.filter;
 
 import cn.tyt.llmproxy.dto.AccessKeyInfo;
+import cn.tyt.llmproxy.service.IAccessKeyService;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import cn.tyt.llmproxy.service.AccessKeyService;
 import cn.tyt.llmproxy.common.domain.Result;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -21,7 +21,7 @@ public class AccessKeyInterceptor implements HandlerInterceptor {
     public static final String USER_ID_ATTRIBUTE = "userId";
 
     @Autowired
-    private AccessKeyService accessKeyService;
+    private IAccessKeyService accessKeyService;
 
     @Autowired
     private ObjectMapper objectMapper;

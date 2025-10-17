@@ -1,5 +1,6 @@
 package cn.tyt.llmproxy.service;
 
+import cn.tyt.llmproxy.dto.request.UserChangeNameRequest;
 import cn.tyt.llmproxy.dto.request.UserChangePasswordRequest;
 import cn.tyt.llmproxy.dto.request.UserLoginRequest;
 import cn.tyt.llmproxy.dto.request.UserRegisterRequest;
@@ -32,31 +33,16 @@ public interface IUserService extends UserDetailsService {
      * @param userId 要分配角色的用户ID
      * @param role   目标角色 (e.g., "model_admin", "user")
      */
-    void assignRole(Integer userId, String role);
+    User assignRole(Integer userId, String role);
 
-    /**
-     * 为当前登录用户创建一个新的AccessKey
-     * @return 创建的AccessKey实体
-     */
-    AccessKey createAccessKey();
 
-    /**
-     * 获取当前登录用户的所有AccessKey
-     * @return AccessKey列表
-     */
-    List<AccessKey> getAccessKeys();
-
-    /**
-     * 删除当前登录用户自己的一个AccessKey
-     * @param keyId 要删除的AccessKey的ID
-     */
-    void deleteMyAccessKey(Integer keyId);
 
     /**
      * 修改当前登录用户的密码
      * @param request 包含旧密码和新密码的请求体
      */
     void changePassword(UserChangePasswordRequest request);
+    public User changeName(UserChangeNameRequest request);
 
     void creditUserBalance(Integer userId, BigDecimal amount);
 

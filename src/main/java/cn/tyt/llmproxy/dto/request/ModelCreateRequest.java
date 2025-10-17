@@ -16,7 +16,6 @@ public class ModelCreateRequest {
     private String modelIdentifier;
     @NotEmpty(message = "模型能力列表不能为空")
     private List<String> capabilities; // e.g., ["text-to-text"]
-    //todo:定义pricing
     private Map<String, Object> pricing;
 
 

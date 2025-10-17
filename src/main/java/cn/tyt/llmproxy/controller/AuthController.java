@@ -6,8 +6,8 @@ import cn.tyt.llmproxy.dto.request.UserChangePasswordRequest;
 import cn.tyt.llmproxy.dto.request.UserLoginRequest;
 import cn.tyt.llmproxy.dto.request.UserRegisterRequest;
 import cn.tyt.llmproxy.dto.response.UserLoginResponse;
-import cn.tyt.llmproxy.entity.AccessKey;
 import cn.tyt.llmproxy.entity.User;
+import cn.tyt.llmproxy.service.IAccessKeyService;
 import cn.tyt.llmproxy.service.IUserService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,6 +22,8 @@ public class AuthController {
 
     @Autowired
     private IUserService userService;
+    @Autowired
+    private IAccessKeyService accessKeyService;
 
     @PostMapping("/register")
     public Result<?> register(@Valid @RequestBody UserRegisterRequest request) {
@@ -46,34 +48,6 @@ public class AuthController {
         userService.changePassword(request);
         // 提示用户密码已修改，建议重新登录，因为旧的token仍然在有效期内
         return Result.success("密码修改成功，为了安全建议您重新登录。");
-    }
-
-    /**
-     * 为当前登录的用户创建一个新的Access Key
-     */
-    @PostMapping("/access-keys")
-    public Result<AccessKey> createAccessKey() {
-        AccessKey accessKey = userService.createAccessKey();
-        return Result.success(accessKey);
-    }
-
-    /**
-     * 获取当前用户的所有Access Key
-     */
-    @GetMapping("/access-keys")
-    public Result<List<AccessKey>> listAccessKeys() {
-        List<AccessKey> keys = userService.getAccessKeys();
-        return Result.success(keys);
-    }
-
-    /**
-     * 删除当前用户的一个指定Access Key
-     * @param id 要删除的Access Key的ID
-     */
-    @DeleteMapping("/access-keys/{id}")
-    public Result<Void> deleteAccessKey(@PathVariable Integer id) {
-        userService.deleteMyAccessKey(id);
-        return Result.success(); // 删除成功，返回一个没有数据体的成功响应
     }
 
     /**

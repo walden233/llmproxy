@@ -3,6 +3,7 @@ package cn.tyt.llmproxy.service.impl;
 import cn.tyt.llmproxy.common.domain.LoginUser;
 import cn.tyt.llmproxy.common.enums.RoleEnum;
 import cn.tyt.llmproxy.common.utils.JwtTokenUtil;
+import cn.tyt.llmproxy.dto.request.UserChangeNameRequest;
 import cn.tyt.llmproxy.dto.request.UserChangePasswordRequest;
 import cn.tyt.llmproxy.dto.request.UserLoginRequest;
 import cn.tyt.llmproxy.dto.request.UserRegisterRequest;
@@ -14,6 +15,9 @@ import cn.tyt.llmproxy.mapper.UserMapper;
 import cn.tyt.llmproxy.service.IUserService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.ApplicationContext;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -33,7 +37,6 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
-import java.util.UUID;
 
 @Service
 public class UserServiceImpl implements IUserService {
@@ -98,7 +101,7 @@ public class UserServiceImpl implements IUserService {
     }
 
     @Override
-    //todo:添加redis缓存
+    @Cacheable(value = "users", key = "#username")
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         User user = userMapper.selectOne(new LambdaQueryWrapper<User>().eq(User::getUsername, username));
         if (user == null) {
@@ -115,7 +118,8 @@ public class UserServiceImpl implements IUserService {
     @Override
     @Transactional
     @PreAuthorize("hasAuthority('root_admin')") // **权限控制**
-    public void assignRole(Integer userId, String role) {
+    @CachePut(value = "users", key = "#result.username")//缓存一致性
+    public User assignRole(Integer userId, String role) {
         // 校验角色是否合法
         if (!RoleEnum.contains(role)) {
             throw new IllegalArgumentException("无效的角色: " + role);
@@ -134,37 +138,10 @@ public class UserServiceImpl implements IUserService {
         user.setRole(role);
         user.setUpdatedAt(LocalDateTime.now());
         userMapper.updateById(user);
+        return user;
     }
 
-    @Override
-    public AccessKey createAccessKey() {
-        User currentUser = getCurrentUser();
-        String key = "ak-" + UUID.randomUUID().toString().replace("-", "");
-        AccessKey newAccessKey = new AccessKey();
-        newAccessKey.setKeyValue(key);
-        newAccessKey.setUserId(currentUser.getId());
-        newAccessKey.setIsActive(true);
-        newAccessKey.setCreatedAt(LocalDateTime.now());
-        accessKeyMapper.insert(newAccessKey);
-        return newAccessKey;
-    }
 
-    @Override
-    public List<AccessKey> getAccessKeys() {
-        User currentUser = getCurrentUser();
-        return accessKeyMapper.selectList(new LambdaQueryWrapper<AccessKey>().eq(AccessKey::getUserId, currentUser.getId()));
-    }
-
-    @Override
-    @Transactional
-    public void deleteMyAccessKey(Integer keyId) {
-        User currentUser = getCurrentUser();
-        AccessKey accessKeyToDelete = accessKeyMapper.selectById(keyId);
-        if (accessKeyToDelete == null || !accessKeyToDelete.getUserId().equals(currentUser.getId())) {
-            throw new IllegalArgumentException("Access Key not found or you don't have permission to delete it.");
-        }
-        accessKeyMapper.deleteById(keyId);
-    }
 
     @Override
     @Transactional
@@ -177,6 +154,20 @@ public class UserServiceImpl implements IUserService {
         currentUser.setUpdatedAt(LocalDateTime.now());
         userMapper.updateById(currentUser);
     }
+
+
+    //有问题：getCurrentUser拿到的缓存中的user的balance是不一致的。
+    @Override
+    @Transactional
+    @CachePut(value = "users", key = "#result.username")//缓存一致
+    public User changeName(UserChangeNameRequest request) {
+        User currentUser = getCurrentUser();
+        currentUser.setUsername(request.getNewName());
+        currentUser.setUpdatedAt(LocalDateTime.now());
+        userMapper.updateById(currentUser);
+        return currentUser;
+    }
+
     @Override
     public void creditUserBalance(Integer userId, BigDecimal amount) {
         User user = userMapper.selectById(userId);

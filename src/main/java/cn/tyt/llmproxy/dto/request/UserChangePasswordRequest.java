@@ -13,4 +13,5 @@ public class UserChangePasswordRequest {
     @NotBlank(message = "新密码不能为空")
     @Size(min = 6, max = 100, message = "新密码长度必须在6到100之间")
     private String newPassword;
+
 }

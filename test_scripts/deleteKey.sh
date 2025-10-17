@@ -1,2 +1,2 @@
-curl -X DELETE 'http://localhost:8060/v1/auth/access-keys/2' \
--H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0IiwiaWF0IjoxNzUyMjE3OTQ4LCJleHAiOjIwNjc1Nzc5NDh9.q6_LdvuAJ5CaJlQwYpFAUdij7ERMAZRYNq9RoUMXF0w"
+curl -X DELETE 'http://localhost:8060/v1/access-keys/5' \
+-H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0IiwiaWF0IjoxNzYwNzA2MTg0LCJleHAiOjIwNzYwNjYxODR9.4NuofN-_cBrn7vDfV1b_XFBxL3S5bkcxe3J__xjBZU0"

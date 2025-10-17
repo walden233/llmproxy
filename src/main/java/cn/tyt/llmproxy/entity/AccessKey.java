@@ -8,6 +8,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
 
 @Data
@@ -15,7 +16,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @TableName("access_keys")
-public class AccessKey {
+public class AccessKey implements Serializable {
     @TableId(type = IdType.AUTO)
     private Integer id;
     private String keyValue;

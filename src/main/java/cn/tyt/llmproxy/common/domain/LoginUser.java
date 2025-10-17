@@ -5,13 +5,14 @@ import lombok.Getter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.io.Serializable;
 import java.util.Collection;
 
-public class LoginUser implements UserDetails {
+public class LoginUser implements UserDetails, Serializable {
 
     // 提供获取 User 对象的方法
     @Getter
-    private final User user; // 从 Admin 改为 User
+    private final User user;
     private final Collection<? extends GrantedAuthority> authorities;
 
     public LoginUser(User user, Collection<? extends GrantedAuthority> authorities) {

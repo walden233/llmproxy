@@ -70,7 +70,6 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
         log.info("使用模型进行聊天: {} (ID: {}), 所需能力: {}", modelConfig.getDisplayName(), modelConfig.getModelIdentifier(), requiredCapability);
         ModelUsageContext.set(modelConfig.getId(), modelConfig.getModelIdentifier());
         OpenAiChatModel chatModel = buildChatLanguageModel(modelConfig, request.getOptions());
-
         List<ChatMessage> messages = new ArrayList<>();
         // 添加系统消息 (如果需要)
         // messages.add(SystemMessage.from("You are a helpful assistant."));
