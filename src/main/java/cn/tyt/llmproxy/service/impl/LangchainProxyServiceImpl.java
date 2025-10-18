@@ -18,6 +18,7 @@ import cn.tyt.llmproxy.mapper.ProviderKeyMapper;
 import cn.tyt.llmproxy.mapper.ProviderMapper;
 import cn.tyt.llmproxy.service.ILangchainProxyService;
 import cn.tyt.llmproxy.service.IUserService;
+import cn.tyt.llmproxy.service.UsageLogService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import dev.langchain4j.data.image.Image;
 import dev.langchain4j.data.message.*;
@@ -36,6 +37,7 @@ import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.*;
 
 @Service
@@ -51,12 +53,14 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
     private ProviderKeyMapper providerKeyMapper;
     @Autowired
     private IUserService userService;
+    @Autowired
+    private UsageLogService usageLogService;
 
 //    // 简单内存会话存储，生产环境可能需要 Redis 或其他持久化存储
 //    private final Map<String, ChatMemory> chatMemories = new ConcurrentHashMap<>();
 
     @Override
-    public ChatResponse_dto chat(ChatRequest_dto request, Integer userId) {
+    public ChatResponse_dto chat(ChatRequest_dto request, Integer userId, Integer accessKeyId) {
         if(request.getImages()==null && request.getUserMessage()==null){
             throw new IllegalArgumentException("请求中必须包含图片或用户消息");
         }
@@ -150,8 +154,12 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
             throw new RuntimeException("模型未能生成响应。");
         }
         BigDecimal cost = calculateChatPrice(response,modelConfig);
-        //todo:使用工作队列处理扣费
+        //todo:使用工作队列处理扣费和记录
         userService.creditUserBalance(userId,cost);
+
+        int inputTokensCount = response.metadata().tokenUsage().inputTokenCount();
+        int outputTokensCount = response.metadata().tokenUsage().outputTokenCount();
+        usageLogService.recordUsage(userId,accessKeyId,modelConfig.getId(),inputTokensCount,outputTokensCount,null,cost.negate(), LocalDateTime.now(),true);
         return new ChatResponse_dto(response.aiMessage().text(), modelConfig.getModelIdentifier());
     }
     private BigDecimal calculateChatPrice(ChatResponse response,LlmModelConfigDto modelConfig){
@@ -173,7 +181,7 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
 
 
     @Override
-    public ImageGenerationResponse generateImage(ImageGenerationRequest request) {
+    public ImageGenerationResponse generateImage(ImageGenerationRequest request, Integer userId, Integer accessKeyId) {
         String requiredCapability = (request.getOriginImage() != null)
                 ? ModelCapabilityEnum.IMAGE_TO_IMAGE.getValue()
                 : ModelCapabilityEnum.TEXT_TO_IMAGE.getValue();
@@ -187,7 +195,16 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
             result = generator.generateImage(request);
         else
             result = generator.editImage(request);
+        BigDecimal cost = calculateImagePrice(result,modelConfig);
+        userService.creditUserBalance(userId,cost);
+        usageLogService.recordUsage(userId,accessKeyId,modelConfig.getId(),null,null,result.getImageUrls().size(),cost.negate(), LocalDateTime.now(),true);
         return result;
+    }
+    private BigDecimal calculateImagePrice(ImageGenerationResponse response,LlmModelConfigDto modelConfig){
+        int imgCount = response.getImageUrls().size();
+        Map<String,Object> pricing = modelConfig.getPricing();
+        BigDecimal imgPrice = new BigDecimal(pricing.get("output").toString());
+        return imgPrice.multiply(new BigDecimal(imgCount)).negate();
     }
 
     private LlmModel selectModel(Integer internalId, String identifier, String requiredCapability) {

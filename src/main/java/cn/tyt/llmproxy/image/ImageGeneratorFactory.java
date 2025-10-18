@@ -19,7 +19,7 @@ public class ImageGeneratorFactory {
             throw new IllegalArgumentException("Model identifier cannot be null or empty.");
         }
 
-        if (modelIdentifier.startsWith("wanx")) {
+        if (modelIdentifier.startsWith("wanx")||modelIdentifier.startsWith("qwen")) {
             return new AliImageGenerator(modelIdentifier, model.getApiKey());
         } else if (modelIdentifier.startsWith("seed")||modelIdentifier.startsWith("doubao")) {
             return new ArkImageGenerator(modelIdentifier, model.getApiKey());

@@ -18,7 +18,8 @@ import java.io.IOException;
 public class AccessKeyInterceptor implements HandlerInterceptor {
 
     public static final String ACCESS_KEY_HEADER = "ACCESS-KEY";
-    public static final String USER_ID_ATTRIBUTE = "userId";
+    public static final String USER_ID = "userId";
+    public static final String ACCESS_KEY_ID = "accessKeyId";
 
     @Autowired
     private IAccessKeyService accessKeyService;
@@ -45,7 +46,8 @@ public class AccessKeyInterceptor implements HandlerInterceptor {
             sendUnauthorizedResponse(response, "账号余额不足");
             return false;
         }
-        request.setAttribute(USER_ID_ATTRIBUTE, keyInfo.getUserId());
+        request.setAttribute(USER_ID, keyInfo.getUserId());
+        request.setAttribute(ACCESS_KEY_ID, keyInfo.getKeyId());
         return true;
     }
 

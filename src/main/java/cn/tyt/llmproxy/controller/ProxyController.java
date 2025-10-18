@@ -21,14 +21,14 @@ public class ProxyController {
     private ILangchainProxyService langchainProxyService;
 
     @PostMapping("/chat")
-    public Result<ChatResponse_dto> chat(@Valid @RequestBody ChatRequest_dto request, @RequestAttribute(AccessKeyInterceptor.USER_ID_ATTRIBUTE) Integer userId) {
-        ChatResponse_dto response = langchainProxyService.chat(request, userId);
+    public Result<ChatResponse_dto> chat(@Valid @RequestBody ChatRequest_dto request, @RequestAttribute(AccessKeyInterceptor.USER_ID) Integer userId, @RequestAttribute(AccessKeyInterceptor.ACCESS_KEY_ID) Integer accessKeyId) {
+        ChatResponse_dto response = langchainProxyService.chat(request, userId, accessKeyId);
         return Result.success(response);
     }
 
     @PostMapping("/generate-image")
-    public Result<ImageGenerationResponse> generateImage(@Valid @RequestBody ImageGenerationRequest request) {
-        ImageGenerationResponse response = langchainProxyService.generateImage(request);
+    public Result<ImageGenerationResponse> generateImage(@Valid @RequestBody ImageGenerationRequest request, @RequestAttribute(AccessKeyInterceptor.USER_ID) Integer userId, @RequestAttribute(AccessKeyInterceptor.ACCESS_KEY_ID) Integer accessKeyId) {
+        ImageGenerationResponse response = langchainProxyService.generateImage(request, userId, accessKeyId);
         return Result.success(response);
     }
 

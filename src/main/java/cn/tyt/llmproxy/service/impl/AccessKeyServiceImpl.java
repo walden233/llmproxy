@@ -81,7 +81,10 @@ public class AccessKeyServiceImpl implements IAccessKeyService {
             keyInfo.setValid(false);
             return keyInfo;
         }
-        else keyInfo.setValid(true);
+        else {
+            keyInfo.setValid(true);
+            keyInfo.setKeyId(accessKey.getId());
+        }
 
         User user = userMapper.selectById(accessKey.getUserId());
         keyInfo.setUserId(user.getId());
