@@ -1,14 +1,20 @@
 package cn.tyt.llmproxy.service.impl;
 
+import cn.tyt.llmproxy.dto.UsageLogDocument;
 import cn.tyt.llmproxy.dto.request.StatisticsQueryDto;
 import cn.tyt.llmproxy.dto.response.ModelStatisticsDto;
 import cn.tyt.llmproxy.entity.ModelDailyStat;
 import cn.tyt.llmproxy.mapper.ModelDailyStatMapper;
+import cn.tyt.llmproxy.repository.UsageLogRepository;
 import cn.tyt.llmproxy.service.IStatisticsService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -18,8 +24,11 @@ public class StatisticsServiceImpl implements IStatisticsService {
 
     private final ModelDailyStatMapper modelDailyStatMapper;
 
+    @Autowired
+    private final UsageLogRepository usageLogRepository;
+
     @Override
-    public void recordModelUsage(Integer modelId, String modelIdentifier, boolean isSuccess) {
+    public void recordUsageMysql(Integer modelId, String modelIdentifier, boolean isSuccess) {
         ModelDailyStat stat = ModelDailyStat.builder()
                 .modelId(modelId)
                 .modelIdentifier(modelIdentifier)
@@ -59,6 +68,57 @@ public class StatisticsServiceImpl implements IStatisticsService {
         List<ModelDailyStat> stats = modelDailyStatMapper.selectList(queryWrapper);
         return convertToDto(stats);
     }
+
+    public void recordUsageMongo(
+            Integer userId,
+            Integer accessKeyId,
+            Integer modelId,
+            Integer promptTokens,
+            Integer completionTokens,
+            Integer imageCount,
+            BigDecimal cost,
+            LocalDateTime time,
+            boolean isSuccess
+    ) {
+        UsageLogDocument log = new UsageLogDocument();
+        log.setUserId(userId);
+        log.setAccessKeyId(accessKeyId);
+        log.setModelId(modelId);
+        log.setPromptTokens(promptTokens);
+        log.setCompletionTokens(completionTokens);
+        log.setImageCount(imageCount);
+        log.setCost(cost);
+        log.setCreateTime(time);
+        log.setIsSuccess(isSuccess);
+
+        // Save the document to MongoDB. It's that simple!
+        usageLogRepository.save(log);
+    }
+    public void recordFailMongo(
+            Integer userId,
+            Integer accessKeyId,
+            Integer modelId,
+            LocalDateTime time
+    ){
+        UsageLogDocument log = new UsageLogDocument();
+        log.setUserId(userId);
+        log.setAccessKeyId(accessKeyId);
+        log.setModelId(modelId);
+        log.setCreateTime(time);
+        log.setIsSuccess(false);
+        usageLogRepository.save(log);
+    }
+
+    /**
+     * Finds logs for a specific user.
+     */
+    public List<UsageLogDocument> getLogsForUser(Integer userId) {
+        return usageLogRepository.findByUserId(userId);
+    }
+    public List<UsageLogDocument> getLogsForModel(Integer modelId) {
+        return usageLogRepository.findByModelId(modelId);
+    }
+
 
     private List<ModelStatisticsDto> convertToDto(List<ModelDailyStat> stats) {
             return stats.stream().map(stat -> {

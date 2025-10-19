@@ -11,6 +11,8 @@ import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Pointcut;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
+
 @Aspect
 @Component
 @Slf4j
@@ -28,8 +30,8 @@ public class StatisticsAspect {
     public void proxyServiceMethods() {}
 
 
-    @Around("proxyServiceMethods()")
-    public Object recordStatistics(ProceedingJoinPoint joinPoint) throws Throwable {
+    @Around("proxyServiceMethods() && args(request, userId, accessKeyId)")
+    public Object recordStatistics(ProceedingJoinPoint joinPoint,Object request, Integer userId, Integer accessKeyId) throws Throwable {
         boolean success = false;
         try {
             // 执行目标方法（例如 ProxyServiceImpl.chat()）
@@ -44,10 +46,13 @@ public class StatisticsAspect {
             // 从上下文中获取模型信息
             ModelUsageContext.ModelUsageInfo usageInfo = ModelUsageContext.get();
 
+
             if (usageInfo != null) {
                 // 如果上下文中有信息，则记录用量
                 log.info("记录模型用量: modelId={}, success={}", usageInfo.getModelId(), success);
-                statisticsService.recordModelUsage(usageInfo.getModelId(), usageInfo.getModelIdentifier(), success);
+                statisticsService.recordUsageMysql(usageInfo.getModelId(), usageInfo.getModelIdentifier(), success);
+                if(!success)
+                    statisticsService.recordFailMongo(userId, accessKeyId, usageInfo.getModelId(), LocalDateTime.now());
                 ModelUsageContext.clear();
             } else {
                 // 正常情况下不应该发生，除非有代理方法没有设置上下文

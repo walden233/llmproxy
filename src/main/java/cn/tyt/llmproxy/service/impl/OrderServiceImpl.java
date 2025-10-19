@@ -28,6 +28,7 @@ public class OrderServiceImpl implements IOrderService {
     private IUserService userService; // 注入用户服务
     @Override
     @Transactional
+    //todo：使用rabbitMQ定时取消订单
     public OrderResponse generateOrder(OrderCreateRequest request) {
         Order order = new Order();
         BeanUtils.copyProperties(request, order);

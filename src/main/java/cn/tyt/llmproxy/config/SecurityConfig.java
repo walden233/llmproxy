@@ -81,7 +81,6 @@ public class SecurityConfig {
                         .requestMatchers("/v1/auth/login", "/v1/auth/register", "/v1/chat", "/v1/generate-image").permitAll()
                         // 2. 仅限 MODEL_ADMIN 和 ROOT_ADMIN 访问的模型管理端点
                         .requestMatchers("/v1/models/**").hasAnyAuthority(RoleEnum.MODEL_ADMIN.getValue(), RoleEnum.ROOT_ADMIN.getValue())
-
 //                        // 3. 仅限 ROOT_ADMIN 访问的用户管理/权限分配端点 (假设有)
 //                        .requestMatchers("/v1/admin/users/**").hasAuthority(RoleEnum.ROOT_ADMIN.getValue())
 

@@ -17,8 +17,8 @@ import cn.tyt.llmproxy.mapper.LlmModelMapper;
 import cn.tyt.llmproxy.mapper.ProviderKeyMapper;
 import cn.tyt.llmproxy.mapper.ProviderMapper;
 import cn.tyt.llmproxy.service.ILangchainProxyService;
+import cn.tyt.llmproxy.service.IStatisticsService;
 import cn.tyt.llmproxy.service.IUserService;
-import cn.tyt.llmproxy.service.UsageLogService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import dev.langchain4j.data.image.Image;
 import dev.langchain4j.data.message.*;
@@ -54,7 +54,7 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
     @Autowired
     private IUserService userService;
     @Autowired
-    private UsageLogService usageLogService;
+    private IStatisticsService statisticsService;
 
 //    // 简单内存会话存储，生产环境可能需要 Redis 或其他持久化存储
 //    private final Map<String, ChatMemory> chatMemories = new ConcurrentHashMap<>();
@@ -154,13 +154,13 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
             throw new RuntimeException("模型未能生成响应。");
         }
         BigDecimal cost = calculateChatPrice(response,modelConfig);
-        //todo:使用工作队列处理扣费和记录
+        //使用工作队列处理扣费和记录？
         userService.creditUserBalance(userId,cost);
 
         int inputTokensCount = response.metadata().tokenUsage().inputTokenCount();
         int outputTokensCount = response.metadata().tokenUsage().outputTokenCount();
-        usageLogService.recordUsage(userId,accessKeyId,modelConfig.getId(),inputTokensCount,outputTokensCount,null,cost.negate(), LocalDateTime.now(),true);
-        return new ChatResponse_dto(response.aiMessage().text(), modelConfig.getModelIdentifier());
+        statisticsService.recordUsageMongo(userId,accessKeyId,modelConfig.getId(),inputTokensCount,outputTokensCount,null,cost.negate(), LocalDateTime.now(),true);
+        return new ChatResponse_dto(response.aiMessage().text(), modelConfig.getModelIdentifier(),inputTokensCount,outputTokensCount);
     }
     private BigDecimal calculateChatPrice(ChatResponse response,LlmModelConfigDto modelConfig){
         int inputTokensCount = response.metadata().tokenUsage().inputTokenCount();
@@ -197,7 +197,7 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
             result = generator.editImage(request);
         BigDecimal cost = calculateImagePrice(result,modelConfig);
         userService.creditUserBalance(userId,cost);
-        usageLogService.recordUsage(userId,accessKeyId,modelConfig.getId(),null,null,result.getImageUrls().size(),cost.negate(), LocalDateTime.now(),true);
+        statisticsService.recordUsageMongo(userId,accessKeyId,modelConfig.getId(),null,null,result.getImageUrls().size(),cost.negate(), LocalDateTime.now(),true);
         return result;
     }
     private BigDecimal calculateImagePrice(ImageGenerationResponse response,LlmModelConfigDto modelConfig){

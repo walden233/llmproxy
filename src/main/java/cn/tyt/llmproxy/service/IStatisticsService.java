@@ -1,9 +1,11 @@
 package cn.tyt.llmproxy.service;
 
+import cn.tyt.llmproxy.dto.UsageLogDocument;
 import cn.tyt.llmproxy.dto.request.StatisticsQueryDto;
 import cn.tyt.llmproxy.dto.response.ModelStatisticsDto;
 
-import java.time.LocalDate;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface IStatisticsService {
@@ -13,11 +15,31 @@ public interface IStatisticsService {
      * @param modelIdentifier 实际使用的模型标识
      * @param isSuccess 调用是否成功
      */
-    void recordModelUsage(Integer modelId, String modelIdentifier, boolean isSuccess);
+    void recordUsageMysql(Integer modelId, String modelIdentifier, boolean isSuccess);
     /**
      * 根据灵活的查询条件获取模型统计数据
      * @param queryDto 包含 modelId, startDate, endDate 的查询对象
      * @return 统计数据列表
      */
     List<ModelStatisticsDto> getModelUsage(StatisticsQueryDto queryDto);
+    public void recordUsageMongo(
+            Integer userId,
+            Integer accessKeyId,
+            Integer modelId,
+            Integer promptTokens,
+            Integer completionTokens,
+            Integer imageCount,
+            BigDecimal cost,
+            LocalDateTime time,
+            boolean isSuccess
+    );
+    public void recordFailMongo(
+            Integer userId,
+            Integer accessKeyId,
+            Integer modelId,
+            LocalDateTime time
+    );
+
+    public List<UsageLogDocument> getLogsForUser(Integer userId);
+    public List<UsageLogDocument> getLogsForModel(Integer modelId);
 }

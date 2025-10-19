@@ -22,8 +22,6 @@ public class AuthController {
 
     @Autowired
     private IUserService userService;
-    @Autowired
-    private IAccessKeyService accessKeyService;
 
     @PostMapping("/register")
     public Result<?> register(@Valid @RequestBody UserRegisterRequest request) {

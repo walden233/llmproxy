@@ -5,6 +5,7 @@ import cn.tyt.llmproxy.common.enums.ResultCode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
@@ -162,6 +163,12 @@ public class GlobalExceptionHandler {
     public Result<?> handleNullPointerException(NullPointerException e, HttpServletRequest request) {
         log.error("空指针异常: {} - 请求路径: {}", e.getMessage(), request.getRequestURI());
         return Result.error(ResultCode.INTERNAL_SERVER_ERROR.getCode(), "系统内部错误:空指针");
+    }
+
+    @ExceptionHandler(AuthorizationDeniedException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public Result<?> handleAuthorizationDeniedException(AuthorizationDeniedException e, HttpServletRequest request) {
+        return Result.error(ResultCode.FORBIDDEN.getCode(), "无权限");
     }
 
     /**
