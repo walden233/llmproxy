@@ -33,7 +33,7 @@ public interface IOrderService {
      * @return 更新后的订单信息
      */
     OrderResponse cancelOrder(String orderNo);
-
+    OrderResponse cancelTtlOrder(String orderNo);
     /**
      * 根据查询条件分页获取订单列表
      * @param pageNum 当前页码

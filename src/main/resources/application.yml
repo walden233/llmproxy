@@ -26,6 +26,14 @@ spring:
       host: localhost
       port: 27017
       database: llm-proxy
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: llmproxy
+    password: llmproxy
+    virtual-host: /llm-proxy
+    # 开启 publisher-confirms 确保消息成功发送到交换机
+    publisher-confirm-type: correlated
 #  cache:
 #    type: caffeine # 指定缓存类型
 #    cache-names: api-keys # 预定义缓存名称

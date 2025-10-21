@@ -1,5 +1,6 @@
 package cn.tyt.llmproxy.service.impl;
 
+import cn.tyt.llmproxy.config.RabbitMQConfig;
 import cn.tyt.llmproxy.dto.request.OrderCreateRequest;
 import cn.tyt.llmproxy.dto.response.OrderResponse;
 import cn.tyt.llmproxy.entity.Order;
@@ -9,6 +10,8 @@ import cn.tyt.llmproxy.service.IUserService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -20,15 +23,19 @@ import java.util.Objects;
 import java.util.UUID;
 
 @Service
+@Slf4j
 public class OrderServiceImpl implements IOrderService {
 
     @Autowired
     private OrderMapper orderMapper;
     @Autowired
     private IUserService userService; // 注入用户服务
+    @Autowired
+    private RabbitTemplate rabbitTemplate; // 注入RabbitTemplate
+
     @Override
     @Transactional
-    //todo：使用rabbitMQ定时取消订单
+    //使用rabbitMQ定时取消订单
     public OrderResponse generateOrder(OrderCreateRequest request) {
         Order order = new Order();
         BeanUtils.copyProperties(request, order);
@@ -40,6 +47,20 @@ public class OrderServiceImpl implements IOrderService {
         order.setUpdatedAt(LocalDateTime.now());
 
         orderMapper.insert(order);
+
+        // 2. 发送延迟消息到RabbitMQ
+        try {
+            String orderNo = order.getOrderNo();
+            rabbitTemplate.convertAndSend(
+                    RabbitMQConfig.ORDER_EXCHANGE_NAME,
+                    RabbitMQConfig.ORDER_DELAY_ROUTING_KEY,
+                    orderNo // 消息内容就是订单号
+            );
+            log.info("已发送订单超时检查消息，订单号: {}", orderNo);
+        } catch (Exception e) {
+            // 消息发送失败可以记录日志，或者进行异常处理
+            log.error("发送订单超时检查消息失败，订单号: {}，错误: {}", order.getOrderNo(), e.getMessage());
+        }
 
         return convertToResponse(order);
     }
@@ -106,10 +127,27 @@ public class OrderServiceImpl implements IOrderService {
     public OrderResponse cancelOrder(String orderNo) {
         Order order = findOrderByOrderNo(orderNo);
         // 只有待支付的订单才能被取消
-        if (!Order.STATUS_PENDING.equals(order.getStatus())) {
+        if (Order.STATUS_COMPLETED.equals(order.getStatus())) {
             throw new IllegalStateException("Only PENDING orders can be cancelled.");
         }
+        if (Order.STATUS_FAILED.equals(order.getStatus())) {
+            return convertToResponse(order);
+        }
         order.setStatus(Order.STATUS_FAILED); // 或自定义一个 STATUS_CANCELLED
+        order.setUpdatedAt(LocalDateTime.now());
+        orderMapper.updateById(order);
+        return convertToResponse(order);
+    }
+
+    @Override
+    @Transactional
+    public OrderResponse cancelTtlOrder(String orderNo) {
+        Order order = findOrderByOrderNo(orderNo);
+        // 由于用于自动取消，状态不对不报错
+        if (!Order.STATUS_PENDING.equals(order.getStatus())) {
+            return convertToResponse(order);
+        }
+        order.setStatus(Order.STATUS_FAILED);
         order.setUpdatedAt(LocalDateTime.now());
         orderMapper.updateById(order);
         return convertToResponse(order);
