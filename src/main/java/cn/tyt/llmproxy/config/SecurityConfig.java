@@ -78,7 +78,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         // 1. 公开访问的端点
-                        .requestMatchers("/v1/auth/login", "/v1/auth/register", "/v1/chat", "/v1/generate-image").permitAll()
+                        .requestMatchers("/v1/auth/login", "/v1/auth/register", "/v1/chat", "/v1/generate-image","v1/async/chat","v1/async/generate-image").permitAll()
                         // 2. 仅限 MODEL_ADMIN 和 ROOT_ADMIN 访问的模型管理端点
                         .requestMatchers("/v1/models/**").hasAnyAuthority(RoleEnum.MODEL_ADMIN.getValue(), RoleEnum.ROOT_ADMIN.getValue())
 //                        // 3. 仅限 ROOT_ADMIN 访问的用户管理/权限分配端点 (假设有)

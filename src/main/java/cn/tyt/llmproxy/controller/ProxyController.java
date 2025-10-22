@@ -5,13 +5,19 @@ import cn.tyt.llmproxy.dto.request.ChatRequest_dto;
 import cn.tyt.llmproxy.dto.request.ImageGenerationRequest;
 import cn.tyt.llmproxy.dto.response.ChatResponse_dto;
 import cn.tyt.llmproxy.dto.response.ImageGenerationResponse;
+import cn.tyt.llmproxy.entity.AsyncJob;
 import cn.tyt.llmproxy.filter.AccessKeyInterceptor;
+import cn.tyt.llmproxy.service.IAsyncJobService;
+import cn.tyt.llmproxy.service.IAsyncTaskProducerService;
 import cn.tyt.llmproxy.service.ILangchainProxyService;
-import dev.langchain4j.model.chat.request.ChatRequest;
-import dev.langchain4j.model.chat.response.ChatResponse;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/v1")
@@ -19,6 +25,15 @@ public class ProxyController {
 
     @Autowired
     private ILangchainProxyService langchainProxyService;
+
+    @Autowired
+    private IAsyncJobService asyncJobService;
+
+    @Autowired
+    private IAsyncTaskProducerService asyncTaskProducerService;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @PostMapping("/chat")
     public Result<ChatResponse_dto> chat(@Valid @RequestBody ChatRequest_dto request, @RequestAttribute(AccessKeyInterceptor.USER_ID) Integer userId, @RequestAttribute(AccessKeyInterceptor.ACCESS_KEY_ID) Integer accessKeyId) {
@@ -32,40 +47,71 @@ public class ProxyController {
         return Result.success(response);
     }
 
-    // TODO:实现异步任务接口并引入rabbitMQ
+    /**
+     * 异步聊天接口
+     */
+    @PostMapping("/async/chat")
+    public Result<Map<String, String>> asyncChat(@Valid @RequestBody ChatRequest_dto request, @RequestAttribute(AccessKeyInterceptor.USER_ID) Integer userId, @RequestAttribute(AccessKeyInterceptor.ACCESS_KEY_ID) Integer accessKeyId) {
+        try {
+            // 创建异步任务
+            Map<String, Object> requestPayload = objectMapper.convertValue(request, new TypeReference<Map<String, Object>>() {});
+            AsyncJob job = asyncJobService.createAsyncJob(userId, request.getModelInternalId(), requestPayload);
+            
+            // 发送任务到消息队列
+            asyncTaskProducerService.sendChatTask(job, requestPayload);
+            
+            // 返回任务ID
+            Map<String, String> response = new HashMap<>();
+            response.put("jobId", job.getJobId());
+            response.put("status", "PENDING");
+            response.put("message", "Task submitted successfully");
+            
+            return Result.success(response);
+            
+        } catch (Exception e) {
+            return Result.error("Failed to submit async chat task: " + e.getMessage());
+        }
+    }
 
-    // TODO: 实现流式聊天接口
-    // @PostMapping(value = "/stream-chat", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    // public SseEmitter streamChat(@Valid @RequestBody ChatRequest request) {
-    //     SseEmitter emitter = new SseEmitter(Long.MAX_VALUE); // 设置超时时间
-    //     try {
-    //         langchainProxyService.streamChat(request, new StreamingResponseHandler<AiMessage>() {
-    //             @Override
-    //             public void onNext(String token) {
-    //                 try {
-    //                     emitter.send(SseEmitter.event().data(token));
-    //                 } catch (IOException e) {
-    //                     emitter.completeWithError(e);
-    //                 }
-    //             }
-    //             @Override
-    //             public void onComplete(Response<AiMessage> response) {
-    //                 // 可以发送一个结束标记或最终的元数据
-    //                 try {
-    //                    emitter.send(SseEmitter.event().name("COMPLETE").data("Stream finished"));
-    //                 } catch (IOException e) {
-    //                    // log error
-    //                 }
-    //                 emitter.complete();
-    //             }
-    //             @Override
-    //             public void onError(Throwable error) {
-    //                 emitter.completeWithError(error);
-    //             }
-    //         });
-    //     } catch (Exception e) {
-    //         emitter.completeWithError(e);
-    //     }
-    //     return emitter;
-    // }
+    /**
+     * 异步图片生成接口
+     */
+    @PostMapping("/async/generate-image")
+    public Result<Map<String, String>> asyncGenerateImage(@Valid @RequestBody ImageGenerationRequest request, @RequestAttribute(AccessKeyInterceptor.USER_ID) Integer userId, @RequestAttribute(AccessKeyInterceptor.ACCESS_KEY_ID) Integer accessKeyId) {
+        try {
+            // 创建异步任务
+            Map<String, Object> requestPayload = objectMapper.convertValue(request, new TypeReference<Map<String, Object>>() {});
+            AsyncJob job = asyncJobService.createAsyncJob(userId, request.getModelInternalId(), requestPayload);
+            
+            // 发送任务到消息队列
+            asyncTaskProducerService.sendImageTask(job, requestPayload);
+            
+            // 返回任务ID
+            Map<String, String> response = new HashMap<>();
+            response.put("jobId", job.getJobId());
+            response.put("status", "PENDING");
+            response.put("message", "Task submitted successfully");
+            
+            return Result.success(response);
+            
+        } catch (Exception e) {
+            return Result.error("Failed to submit async image generation task: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 查询异步任务状态
+     */
+    @GetMapping("/async/jobs/{jobId}")
+    public Result<AsyncJob> getJobStatus(@PathVariable String jobId) {
+        try {
+            AsyncJob job = asyncJobService.getJobStatus(jobId);
+            if (job == null) {
+                return Result.error("Job not found");
+            }
+            return Result.success(job);
+        } catch (Exception e) {
+            return Result.error("Failed to get job status: " + e.getMessage());
+        }
+    }
 }

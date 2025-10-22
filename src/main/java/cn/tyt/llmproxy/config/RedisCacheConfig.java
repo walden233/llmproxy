@@ -1,12 +1,13 @@
 package cn.tyt.llmproxy.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
-import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
@@ -16,13 +17,14 @@ import java.time.Duration;
 public class RedisCacheConfig {
     @Value("${spring.cache.redis.key-prefix}")
     private String keyPrefix;
-
     @Bean
-    public RedisCacheManager cacheManager(RedisConnectionFactory factory) {
+    //objectMapper被自动注入，是经过了JacksonConfig自定义的
+    public RedisCacheManager cacheManager(RedisConnectionFactory factory, ObjectMapper objectMapper) {
+        Jackson2JsonRedisSerializer<Object> jacksonSerializer = new Jackson2JsonRedisSerializer<>(objectMapper, Object.class);
         // 1. 配置通用的序列化方式
         RedisCacheConfiguration defaultCacheConfig = RedisCacheConfiguration.defaultCacheConfig()
                 .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
-//                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(new GenericJackson2JsonRedisSerializer()))
+                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(jacksonSerializer))
                 .computePrefixWith(cacheName -> keyPrefix + ":" + cacheName + "::")
                 // 2. 设置全局默认的过期时间为 1 小时
                 .entryTtl(Duration.ofHours(24));
