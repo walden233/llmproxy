@@ -1,0 +1,2 @@
+curl -X GET 'http://localhost:8060/v1/async/jobs/c40c145b-0aeb-4f58-876c-dc20ab7a8484' \
+-H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0IiwiaWF0IjoxNzYwNjA0ODExLCJleHAiOjIwNzU5NjQ4MTF9.qeqKAfT5WT60-kWiafv0_Qygtz9OQAp3Fw3PdhuE5JI"

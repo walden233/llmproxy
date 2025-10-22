@@ -60,7 +60,7 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
 //    private final Map<String, ChatMemory> chatMemories = new ConcurrentHashMap<>();
 
     @Override
-    public ChatResponse_dto chat(ChatRequest_dto request, Integer userId, Integer accessKeyId) {
+    public ChatResponse_dto chat(ChatRequest_dto request, Integer userId, Integer accessKeyId, Boolean isAsync) {
         if(request.getImages()==null && request.getUserMessage()==null){
             throw new IllegalArgumentException("请求中必须包含图片或用户消息");
         }
@@ -159,7 +159,7 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
 
         int inputTokensCount = response.metadata().tokenUsage().inputTokenCount();
         int outputTokensCount = response.metadata().tokenUsage().outputTokenCount();
-        statisticsService.recordUsageMongo(userId,accessKeyId,modelConfig.getId(),inputTokensCount,outputTokensCount,null,cost.negate(), LocalDateTime.now(),true);
+        statisticsService.recordUsageMongo(userId,accessKeyId,modelConfig.getId(),inputTokensCount,outputTokensCount,null,cost.negate(), LocalDateTime.now(),true,isAsync);
         return new ChatResponse_dto(response.aiMessage().text(), modelConfig.getModelIdentifier(),inputTokensCount,outputTokensCount);
     }
     private BigDecimal calculateChatPrice(ChatResponse response,LlmModelConfigDto modelConfig){
@@ -181,7 +181,7 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
 
 
     @Override
-    public ImageGenerationResponse generateImage(ImageGenerationRequest request, Integer userId, Integer accessKeyId) {
+    public ImageGenerationResponse generateImage(ImageGenerationRequest request, Integer userId, Integer accessKeyId, Boolean isAsync) {
         String requiredCapability = (request.getOriginImage() != null)
                 ? ModelCapabilityEnum.IMAGE_TO_IMAGE.getValue()
                 : ModelCapabilityEnum.TEXT_TO_IMAGE.getValue();
@@ -197,7 +197,7 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
             result = generator.editImage(request);
         BigDecimal cost = calculateImagePrice(result,modelConfig);
         userService.creditUserBalance(userId,cost);
-        statisticsService.recordUsageMongo(userId,accessKeyId,modelConfig.getId(),null,null,result.getImageUrls().size(),cost.negate(), LocalDateTime.now(),true);
+        statisticsService.recordUsageMongo(userId,accessKeyId,modelConfig.getId(),null,null,result.getImageUrls().size(),cost.negate(), LocalDateTime.now(),true,isAsync);
         return result;
     }
     private BigDecimal calculateImagePrice(ImageGenerationResponse response,LlmModelConfigDto modelConfig){

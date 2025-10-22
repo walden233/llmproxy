@@ -78,7 +78,8 @@ public class StatisticsServiceImpl implements IStatisticsService {
             Integer imageCount,
             BigDecimal cost,
             LocalDateTime time,
-            boolean isSuccess
+            boolean isSuccess,
+            Boolean isAsync
     ) {
         UsageLogDocument log = new UsageLogDocument();
         log.setUserId(userId);
@@ -90,6 +91,7 @@ public class StatisticsServiceImpl implements IStatisticsService {
         log.setCost(cost);
         log.setCreateTime(time);
         log.setIsSuccess(isSuccess);
+        log.setIsAsync(isAsync);
 
         // Save the document to MongoDB. It's that simple!
         usageLogRepository.save(log);
@@ -98,7 +100,8 @@ public class StatisticsServiceImpl implements IStatisticsService {
             Integer userId,
             Integer accessKeyId,
             Integer modelId,
-            LocalDateTime time
+            LocalDateTime time,
+            Boolean isAsync
     ){
         UsageLogDocument log = new UsageLogDocument();
         log.setUserId(userId);
@@ -106,6 +109,8 @@ public class StatisticsServiceImpl implements IStatisticsService {
         log.setModelId(modelId);
         log.setCreateTime(time);
         log.setIsSuccess(false);
+        log.setIsAsync(isAsync);
+
         usageLogRepository.save(log);
     }
 

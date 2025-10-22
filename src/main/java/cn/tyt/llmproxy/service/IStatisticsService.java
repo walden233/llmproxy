@@ -31,13 +31,15 @@ public interface IStatisticsService {
             Integer imageCount,
             BigDecimal cost,
             LocalDateTime time,
-            boolean isSuccess
+            boolean isSuccess,
+            Boolean isAsync
     );
     public void recordFailMongo(
             Integer userId,
             Integer accessKeyId,
             Integer modelId,
-            LocalDateTime time
+            LocalDateTime time,
+            Boolean isAsync
     );
 
     public List<UsageLogDocument> getLogsForUser(Integer userId);

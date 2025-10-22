@@ -6,10 +6,13 @@ import cn.tyt.llmproxy.dto.request.ImageGenerationRequest;
 import cn.tyt.llmproxy.dto.response.ChatResponse_dto;
 import cn.tyt.llmproxy.dto.response.ImageGenerationResponse;
 import cn.tyt.llmproxy.entity.AsyncJob;
+import cn.tyt.llmproxy.entity.User;
 import cn.tyt.llmproxy.filter.AccessKeyInterceptor;
 import cn.tyt.llmproxy.service.IAsyncJobService;
 import cn.tyt.llmproxy.service.IAsyncTaskProducerService;
 import cn.tyt.llmproxy.service.ILangchainProxyService;
+import cn.tyt.llmproxy.service.IUserService;
+import cn.tyt.llmproxy.service.impl.UserServiceImpl;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
@@ -34,16 +37,18 @@ public class ProxyController {
 
     @Autowired
     private ObjectMapper objectMapper;
+    @Autowired
+    private IUserService userService;
 
     @PostMapping("/chat")
     public Result<ChatResponse_dto> chat(@Valid @RequestBody ChatRequest_dto request, @RequestAttribute(AccessKeyInterceptor.USER_ID) Integer userId, @RequestAttribute(AccessKeyInterceptor.ACCESS_KEY_ID) Integer accessKeyId) {
-        ChatResponse_dto response = langchainProxyService.chat(request, userId, accessKeyId);
+        ChatResponse_dto response = langchainProxyService.chat(request, userId, accessKeyId,false);
         return Result.success(response);
     }
 
     @PostMapping("/generate-image")
     public Result<ImageGenerationResponse> generateImage(@Valid @RequestBody ImageGenerationRequest request, @RequestAttribute(AccessKeyInterceptor.USER_ID) Integer userId, @RequestAttribute(AccessKeyInterceptor.ACCESS_KEY_ID) Integer accessKeyId) {
-        ImageGenerationResponse response = langchainProxyService.generateImage(request, userId, accessKeyId);
+        ImageGenerationResponse response = langchainProxyService.generateImage(request, userId, accessKeyId,false);
         return Result.success(response);
     }
 
@@ -55,7 +60,7 @@ public class ProxyController {
         try {
             // 创建异步任务
             Map<String, Object> requestPayload = objectMapper.convertValue(request, new TypeReference<Map<String, Object>>() {});
-            AsyncJob job = asyncJobService.createAsyncJob(userId, request.getModelInternalId(), requestPayload);
+            AsyncJob job = asyncJobService.createAsyncJob(userId, accessKeyId, requestPayload);
             
             // 发送任务到消息队列
             asyncTaskProducerService.sendChatTask(job, requestPayload);
@@ -81,7 +86,7 @@ public class ProxyController {
         try {
             // 创建异步任务
             Map<String, Object> requestPayload = objectMapper.convertValue(request, new TypeReference<Map<String, Object>>() {});
-            AsyncJob job = asyncJobService.createAsyncJob(userId, request.getModelInternalId(), requestPayload);
+            AsyncJob job = asyncJobService.createAsyncJob(userId, accessKeyId, requestPayload);
             
             // 发送任务到消息队列
             asyncTaskProducerService.sendImageTask(job, requestPayload);
@@ -105,11 +110,15 @@ public class ProxyController {
     @GetMapping("/async/jobs/{jobId}")
     public Result<AsyncJob> getJobStatus(@PathVariable String jobId) {
         try {
+            User user = userService.getCurrentUser();
             AsyncJob job = asyncJobService.getJobStatus(jobId);
             if (job == null) {
                 return Result.error("Job not found");
             }
-            return Result.success(job);
+            if (user.getId().equals(job.getUserId()))
+                return Result.success(job);
+            else
+                return Result.error("无权限");
         } catch (Exception e) {
             return Result.error("Failed to get job status: " + e.getMessage());
         }

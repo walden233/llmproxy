@@ -22,7 +22,8 @@ public class AsyncJob {
     private Integer id;
     private String jobId;
     private Integer userId;
-    private Integer modelId;
+    private Integer accessKeyId;
+    private String modelName;
     private String status;
 
     @TableField(typeHandler = JacksonTypeHandler.class)

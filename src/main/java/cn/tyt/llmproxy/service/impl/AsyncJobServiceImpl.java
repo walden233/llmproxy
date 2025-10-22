@@ -20,11 +20,11 @@ public class AsyncJobServiceImpl implements IAsyncJobService {
 
     @Override
     @Transactional
-    public AsyncJob createAsyncJob(Integer userId, Integer modelId, Map<String, Object> requestPayload) {
+    public AsyncJob createAsyncJob(Integer userId, Integer accessKeyId, Map<String, Object> requestPayload) {
         AsyncJob job = new AsyncJob();
         job.setJobId(UUID.randomUUID().toString());
         job.setUserId(userId);
-        job.setModelId(modelId);
+        job.setAccessKeyId(accessKeyId);
         job.setStatus(AsyncJob.STATUS_PENDING);
         job.setRequestPayload(requestPayload);
         job.setCreatedAt(LocalDateTime.now());
@@ -43,7 +43,7 @@ public class AsyncJobServiceImpl implements IAsyncJobService {
 
     @Override
     @Transactional
-    public boolean updateJobStatus(String jobId, String status, Map<String, Object> resultPayload, String errorMessage) {
+    public boolean updateJobStatus(String jobId, String status, String modelName, Map<String, Object> resultPayload, String errorMessage) {
         LambdaQueryWrapper<AsyncJob> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(AsyncJob::getJobId, jobId);
         
@@ -51,7 +51,7 @@ public class AsyncJobServiceImpl implements IAsyncJobService {
         if (job == null) {
             return false;
         }
-        
+        job.setModelName(modelName);
         job.setStatus(status);
         job.setResultPayload(resultPayload);
         job.setErrorMessage(errorMessage);

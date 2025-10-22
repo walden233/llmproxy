@@ -27,12 +27,12 @@ public class AsyncTaskListener {
         try {
             String jobId = (String) message.get("jobId");
             Integer userId = (Integer) message.get("userId");
-            Integer modelId = (Integer) message.get("modelId");
+            Integer accessKeyId = (Integer) message.get("accessKeyId");
             Map<String, Object> requestPayload = objectMapper.convertValue(message.get("requestPayload"), 
                 new TypeReference<Map<String, Object>>() {});
             
             log.info("Received async chat task for jobId: {}, userId: {}", jobId, userId);
-            asyncTaskConsumerService.processChatTask(jobId, userId, modelId, requestPayload);
+            asyncTaskConsumerService.processChatTask(jobId, userId, accessKeyId, requestPayload);
             
         } catch (Exception e) {
             log.error("Failed to process async chat task message: {}", message, e);
@@ -44,12 +44,12 @@ public class AsyncTaskListener {
         try {
             String jobId = (String) message.get("jobId");
             Integer userId = (Integer) message.get("userId");
-            Integer modelId = (Integer) message.get("modelId");
+            Integer accessKeyId = (Integer) message.get("accessKeyId");
             Map<String, Object> requestPayload = objectMapper.convertValue(message.get("requestPayload"), 
                 new TypeReference<Map<String, Object>>() {});
             
             log.info("Received async image task for jobId: {}, userId: {}", jobId, userId);
-            asyncTaskConsumerService.processImageTask(jobId, userId, modelId, requestPayload);
+            asyncTaskConsumerService.processImageTask(jobId, userId, accessKeyId, requestPayload);
             
         } catch (Exception e) {
             log.error("Failed to process async image task message: {}", message, e);

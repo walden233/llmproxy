@@ -9,7 +9,6 @@ import org.springframework.data.mongodb.core.mapping.FieldType;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.Date;
 
 /**
  * Represents a usage log entry stored in the 'usage_logs' collection in MongoDB.
@@ -30,6 +29,9 @@ public class UsageLogDocument {
     @Indexed
     private Integer modelId;
 
+    private Boolean isAsync;
+    private Boolean isSuccess;
+
     private Integer promptTokens;
 
     private Integer completionTokens;
@@ -41,6 +43,4 @@ public class UsageLogDocument {
     private BigDecimal cost;
 
     private LocalDateTime createTime;
-
-    private Boolean isSuccess;
 }

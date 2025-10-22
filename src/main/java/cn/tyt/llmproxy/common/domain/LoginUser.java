@@ -1,12 +1,17 @@
 package cn.tyt.llmproxy.common.domain;
 
 import cn.tyt.llmproxy.entity.User; // 引入 User
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.io.Serializable;
 import java.util.Collection;
+
 
 public class LoginUser implements UserDetails, Serializable {
 
@@ -14,8 +19,10 @@ public class LoginUser implements UserDetails, Serializable {
     @Getter
     private final User user;
     private final Collection<? extends GrantedAuthority> authorities;
-
-    public LoginUser(User user, Collection<? extends GrantedAuthority> authorities) {
+    // 1. @JsonCreator 告诉 Jackson 这是用来创建实例的工厂
+    @JsonCreator
+    public LoginUser(@JsonProperty("user") User user,
+                     @JsonProperty("authorities") Collection<? extends GrantedAuthority> authorities) {
         this.user = user;
         this.authorities = authorities;
     }

@@ -94,7 +94,7 @@ CREATE TABLE `async_jobs` (
                               `job_id` VARCHAR(64) NOT NULL UNIQUE COMMENT '公开的任务ID (UUID)',
                               `user_id` INT NOT NULL COMMENT '用户ID',
                               `access_key_id` INT COMMENT '使用的Access Key ID',
-                              `model_id` INT COMMENT '使用的模型ID',
+                              `model_name` VARCHAR(100) COMMENT '使用的模型名',
                               `status` ENUM('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED') NOT NULL DEFAULT 'PENDING' COMMENT '任务状态',
                               `request_payload` JSON COMMENT '原始请求体',
                               `result_payload` JSON COMMENT '成功的结果',

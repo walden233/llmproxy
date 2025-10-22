@@ -8,7 +8,7 @@ public interface IAsyncJobService {
     /**
      * 创建异步任务
      */
-    AsyncJob createAsyncJob(Integer userId, Integer modelId, Map<String, Object> requestPayload);
+    AsyncJob createAsyncJob(Integer userId, Integer accessKeyId, Map<String, Object> requestPayload);
     
     /**
      * 根据任务ID获取任务状态
@@ -18,5 +18,5 @@ public interface IAsyncJobService {
     /**
      * 更新任务状态
      */
-    boolean updateJobStatus(String jobId, String status, Map<String, Object> resultPayload, String errorMessage);
+    boolean updateJobStatus(String jobId, String status, String modelName, Map<String, Object> resultPayload, String errorMessage);
 }

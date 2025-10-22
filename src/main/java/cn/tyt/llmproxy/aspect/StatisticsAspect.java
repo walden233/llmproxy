@@ -30,8 +30,8 @@ public class StatisticsAspect {
     public void proxyServiceMethods() {}
 
 
-    @Around("proxyServiceMethods() && args(request, userId, accessKeyId)")
-    public Object recordStatistics(ProceedingJoinPoint joinPoint,Object request, Integer userId, Integer accessKeyId) throws Throwable {
+    @Around("proxyServiceMethods() && args(request, userId, accessKeyId, isAsync)")
+    public Object recordStatistics(ProceedingJoinPoint joinPoint,Object request, Integer userId, Integer accessKeyId, Boolean isAsync) throws Throwable {
         boolean success = false;
         try {
             // 执行目标方法（例如 ProxyServiceImpl.chat()）
@@ -52,7 +52,7 @@ public class StatisticsAspect {
                 log.info("记录模型用量: modelId={}, success={}", usageInfo.getModelId(), success);
                 statisticsService.recordUsageMysql(usageInfo.getModelId(), usageInfo.getModelIdentifier(), success);
                 if(!success)
-                    statisticsService.recordFailMongo(userId, accessKeyId, usageInfo.getModelId(), LocalDateTime.now());
+                    statisticsService.recordFailMongo(userId, accessKeyId, usageInfo.getModelId(), LocalDateTime.now(),isAsync);
                 ModelUsageContext.clear();
             } else {
                 // 正常情况下不应该发生，除非有代理方法没有设置上下文

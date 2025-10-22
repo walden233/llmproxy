@@ -27,7 +27,7 @@ public class AsyncTaskProducerServiceImpl implements IAsyncTaskProducerService {
         Map<String, Object> message = new HashMap<>();
         message.put("jobId", job.getJobId());
         message.put("userId", job.getUserId());
-        message.put("modelId", job.getModelId());
+        message.put("accessKeyId", job.getAccessKeyId());
         message.put("requestPayload", chatRequest);
         
         rabbitTemplate.convertAndSend(ASYNC_TASK_EXCHANGE, ASYNC_CHAT_ROUTING_KEY, message);
@@ -38,7 +38,7 @@ public class AsyncTaskProducerServiceImpl implements IAsyncTaskProducerService {
         Map<String, Object> message = new HashMap<>();
         message.put("jobId", job.getJobId());
         message.put("userId", job.getUserId());
-        message.put("modelId", job.getModelId());
+        message.put("accessKeyId", job.getAccessKeyId());
         message.put("requestPayload", imageRequest);
         
         rabbitTemplate.convertAndSend(ASYNC_TASK_EXCHANGE, ASYNC_IMAGE_ROUTING_KEY, message);
