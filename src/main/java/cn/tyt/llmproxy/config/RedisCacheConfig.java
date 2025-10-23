@@ -12,6 +12,7 @@ import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
+import org.springframework.security.jackson2.SecurityJackson2Modules;
 
 import java.time.Duration;
 
@@ -29,6 +30,7 @@ public class RedisCacheConfig {
                 ObjectMapper.DefaultTyping.NON_FINAL,  // 非 final 类都记录类型
                 JsonTypeInfo.As.PROPERTY               // 将类型信息作为一个属性（默认是 "@class"）
         );
+        redisObjectMapper.registerModules(SecurityJackson2Modules.getModules(null));
         Jackson2JsonRedisSerializer<Object> jacksonSerializer = new Jackson2JsonRedisSerializer<>(redisObjectMapper, Object.class);
         // 1. 配置通用的序列化方式
         RedisCacheConfiguration defaultCacheConfig = RedisCacheConfiguration.defaultCacheConfig()

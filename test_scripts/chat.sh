@@ -5,7 +5,7 @@ curl -X POST \
   -d '{
     "userMessage": "Hello!",
    "options": {
-        "temperature": 1,
+        "temperature": 0,
         "max_tokens": 512,
         "top_p": 0.9,
         "frequency_penalty": 0.0

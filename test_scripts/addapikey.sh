@@ -4,5 +4,5 @@ curl -X POST \
   -H "Content-Type: application/json" \
   -d '{
         "providerName": "deepseek",
-        "apiKey": "sk-ac8560306b8a41d5824a4cc2fe82f49f"
+        "apiKey": "sk-aa8560306b8a41d5824a4cc2fe82f49f"
     }'

@@ -14,16 +14,13 @@ import cn.tyt.llmproxy.dto.response.ChatResponse_dto;
 import cn.tyt.llmproxy.dto.response.ImageGenerationResponse;
 import cn.tyt.llmproxy.entity.LlmModel;
 import cn.tyt.llmproxy.mapper.LlmModelMapper;
-import cn.tyt.llmproxy.mapper.ProviderKeyMapper;
 import cn.tyt.llmproxy.mapper.ProviderMapper;
-import cn.tyt.llmproxy.service.ILangchainProxyService;
-import cn.tyt.llmproxy.service.IStatisticsService;
-import cn.tyt.llmproxy.service.IUserService;
+import cn.tyt.llmproxy.service.*;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import dev.langchain4j.data.image.Image;
 import dev.langchain4j.data.message.*;
-//import dev.langchain4j.model.chat.ChatLanguageModel;
-import dev.langchain4j.exception.InvalidRequestException;
+import dev.langchain4j.exception.AuthenticationException;
+import dev.langchain4j.exception.RateLimitException;
 import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.openai.OpenAiChatModel;
@@ -50,11 +47,13 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
     @Autowired
     private ProviderMapper providerMapper;
     @Autowired
-    private ProviderKeyMapper providerKeyMapper;
+    private KeySelectionService keySelectionService; // 注入新服务
     @Autowired
     private IUserService userService;
     @Autowired
     private IStatisticsService statisticsService;
+    @Autowired
+    private IProviderService providerService;
 
 //    // 简单内存会话存储，生产环境可能需要 Redis 或其他持久化存储
 //    private final Map<String, ChatMemory> chatMemories = new ConcurrentHashMap<>();
@@ -149,7 +148,17 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
         // 调用第三方大模型
         ChatRequest chatRequest = builder.messages(messages).build();
         //可能会抛出各种异常比如 InvalidRequestException、api余额不足等等，不捕获
-        ChatResponse response = chatModel.chat(chatRequest);
+        ChatResponse response = null;
+        try{
+            response = chatModel.chat(chatRequest);
+        } catch (AuthenticationException e){
+            providerService.updateKeyStatus(modelConfig.getProviderKeyId(), false);
+            throw e;
+        } catch (RateLimitException e){
+            keySelectionService.reportKeyFailure(modelConfig.getProviderKeyId(), 5*60);
+            throw e;
+        }
+
         if (response == null || response.aiMessage() == null) {
             throw new RuntimeException("模型未能生成响应。");
         }
@@ -245,19 +254,19 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
         }
     }
 
-    private LlmModelConfigDto buildModelConfig(LlmModel model){
+    private LlmModelConfigDto buildModelConfig(LlmModel model) {
         Provider provider = providerMapper.selectById(model.getProviderId());
-        if(provider==null)
+        if (provider == null)
             throw new RuntimeException("没有找到" + model.getModelIdentifier() + " 的提供商");
-        //todo:需要更复杂的apikey选择策略
-        ProviderKey providerKey = providerKeyMapper.selectOne(
-                new LambdaQueryWrapper<ProviderKey>().eq(ProviderKey::getProviderId, provider.getId())
-        );
+
+        ProviderKey providerKey = keySelectionService.selectAvailableKey(provider.getId());
+
         LlmModelConfigDto modelConfig = new LlmModelConfigDto();
         BeanUtils.copyProperties(model, modelConfig);
         modelConfig.setProviderName(provider.getName());
         modelConfig.setUrlBase(provider.getUrlBase());
         modelConfig.setApiKey(providerKey.getApiKey());
+        modelConfig.setProviderKeyId(providerKey.getId());
         return modelConfig;
     }
 

@@ -20,5 +20,6 @@ public class LlmModelConfigDto {
     private String urlBase;
 
     // --- ProviderKey 的信息 ---
+    private Integer providerKeyId;    //用于追踪和报告 Key 的状态
     private String apiKey; // 我们假设一个模型配置只对应一个有效的 key
 }
