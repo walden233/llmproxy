@@ -2,6 +2,7 @@ package cn.tyt.llmproxy.service.impl;
 
 import cn.tyt.llmproxy.dto.UsageLogDocument;
 import cn.tyt.llmproxy.dto.request.StatisticsQueryDto;
+import cn.tyt.llmproxy.dto.request.UsageLogQueryDto;
 import cn.tyt.llmproxy.dto.response.ModelStatisticsDto;
 import cn.tyt.llmproxy.entity.ModelDailyStat;
 import cn.tyt.llmproxy.mapper.ModelDailyStatMapper;
@@ -9,8 +10,11 @@ import cn.tyt.llmproxy.repository.UsageLogRepository;
 import cn.tyt.llmproxy.service.IStatisticsService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.domain.Sort;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -23,9 +27,8 @@ import java.util.stream.Collectors;
 public class StatisticsServiceImpl implements IStatisticsService {
 
     private final ModelDailyStatMapper modelDailyStatMapper;
-
-    @Autowired
     private final UsageLogRepository usageLogRepository;
+    private final MongoTemplate mongoTemplate;
 
     @Override
     public void recordUsageMysql(Integer modelId, String modelIdentifier, boolean isSuccess) {
@@ -117,11 +120,54 @@ public class StatisticsServiceImpl implements IStatisticsService {
     /**
      * Finds logs for a specific user.
      */
+    @Override
     public List<UsageLogDocument> getLogsForUser(Integer userId) {
         return usageLogRepository.findByUserId(userId);
     }
+    @Override
     public List<UsageLogDocument> getLogsForModel(Integer modelId) {
         return usageLogRepository.findByModelId(modelId);
+    }
+
+    @Override
+    public List<UsageLogDocument> queryUsageLogs(UsageLogQueryDto queryDto) {
+        UsageLogQueryDto safeDto = queryDto == null ? new UsageLogQueryDto() : queryDto;
+        Query query = new Query();
+
+        if (safeDto.getUserId() != null) {
+            query.addCriteria(Criteria.where("userId").is(safeDto.getUserId()));
+        }
+        if (safeDto.getAccessKeyId() != null) {
+            query.addCriteria(Criteria.where("accessKeyId").is(safeDto.getAccessKeyId()));
+        }
+        if (safeDto.getModelId() != null) {
+            query.addCriteria(Criteria.where("modelId").is(safeDto.getModelId()));
+        }
+        if (safeDto.getIsAsync() != null) {
+            query.addCriteria(Criteria.where("isAsync").is(safeDto.getIsAsync()));
+        }
+        if (safeDto.getIsSuccess() != null) {
+            query.addCriteria(Criteria.where("isSuccess").is(safeDto.getIsSuccess()));
+        }
+        if (safeDto.getStartTime() != null || safeDto.getEndTime() != null) {
+            Criteria timeCriteria = Criteria.where("createTime");
+            if (safeDto.getStartTime() != null) {
+                timeCriteria.gte(safeDto.getStartTime());
+            }
+            if (safeDto.getEndTime() != null) {
+                timeCriteria.lte(safeDto.getEndTime());
+            }
+            query.addCriteria(timeCriteria);
+        }
+
+        Sort.Direction direction = Boolean.TRUE.equals(safeDto.getSortDesc()) ? Sort.Direction.DESC : Sort.Direction.ASC;
+        query.with(Sort.by(direction, "createTime"));
+
+        if (safeDto.getLimit() != null && safeDto.getLimit() > 0) {
+            query.limit(safeDto.getLimit());
+        }
+
+        return mongoTemplate.find(query, UsageLogDocument.class);
     }
 
 

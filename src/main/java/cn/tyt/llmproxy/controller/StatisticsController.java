@@ -2,6 +2,7 @@ package cn.tyt.llmproxy.controller;
 
 import cn.tyt.llmproxy.common.domain.Result;
 import cn.tyt.llmproxy.dto.request.StatisticsQueryDto;
+import cn.tyt.llmproxy.dto.request.UsageLogQueryDto;
 import cn.tyt.llmproxy.dto.response.ModelStatisticsDto;
 import cn.tyt.llmproxy.dto.UsageLogDocument;
 import cn.tyt.llmproxy.service.IStatisticsService;
@@ -19,7 +20,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/v1/statistics")
-@PreAuthorize("hasAnyAuthority('root_admin','model_admin')")
+@PreAuthorize("hasAnyAuthority('ROLE_ROOT_ADMIN','ROLE_MODEL_ADMIN')")
 @Tag(name = "Statistics Management", description = "用于管理和查询使用统计与日志的API")
 public class StatisticsController {
 
@@ -71,6 +72,15 @@ public class StatisticsController {
     @GetMapping("/model/{modelId}")
     public Result<List<UsageLogDocument>> getLogsForModel(@PathVariable Integer modelId) {
         List<UsageLogDocument> logs = statisticsService.getLogsForModel(modelId);
+        return Result.success(logs);
+    }
+
+    /**
+     * 根据自定义条件筛选用量日志（支持用户/模型/时间/成功状态等组合条件）。
+     */
+    @PostMapping("/logs/query")
+    public Result<List<UsageLogDocument>> queryUsageLogs(@RequestBody(required = false) UsageLogQueryDto queryDto) {
+        List<UsageLogDocument> logs = statisticsService.queryUsageLogs(queryDto);
         return Result.success(logs);
     }
 }

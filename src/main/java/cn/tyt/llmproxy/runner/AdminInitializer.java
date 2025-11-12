@@ -1,6 +1,6 @@
 package cn.tyt.llmproxy.runner;
 
-import cn.tyt.llmproxy.common.enums.RoleEnum;
+import cn.tyt.llmproxy.security.Roles;
 import cn.tyt.llmproxy.entity.User;
 import cn.tyt.llmproxy.mapper.UserMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -23,20 +23,20 @@ public class AdminInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        // 检查 root_admin 是否已存在
-        if (userMapper.selectCount(new LambdaQueryWrapper<User>().eq(User::getRole, RoleEnum.ROOT_ADMIN.getValue())) == 0) {
-            System.out.println("Creating initial root_admin user...");
+        // 检查 ROLE_ROOT_ADMIN 是否已存在
+        if (userMapper.selectCount(new LambdaQueryWrapper<User>().eq(User::getRole, Roles.ROOT_ADMIN)) == 0) {
+            System.out.println("Creating initial ROLE_ROOT_ADMIN user...");
             User rootAdmin = new User();
             rootAdmin.setUsername("root");
             rootAdmin.setPasswordHash(passwordEncoder.encode("YourSecurePassword123")); // **请务必修改为强密码**
             rootAdmin.setEmail("root@example.com");
-            rootAdmin.setRole(RoleEnum.ROOT_ADMIN.getValue());
+            rootAdmin.setRole(Roles.ROOT_ADMIN);
             rootAdmin.setBalance(new BigDecimal("999999.00"));
             rootAdmin.setStatus(User.STATUS_ACTIVE);
             rootAdmin.setCreatedAt(LocalDateTime.now());
             rootAdmin.setUpdatedAt(LocalDateTime.now());
             userMapper.insert(rootAdmin);
-            System.out.println("root_admin user created successfully.");
+            System.out.println("ROLE_ROOT_ADMIN user created successfully.");
         }
     }
 }

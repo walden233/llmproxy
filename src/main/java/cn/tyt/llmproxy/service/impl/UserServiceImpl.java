@@ -1,7 +1,6 @@
 package cn.tyt.llmproxy.service.impl;
 
 import cn.tyt.llmproxy.common.domain.LoginUser;
-import cn.tyt.llmproxy.common.enums.RoleEnum;
 import cn.tyt.llmproxy.common.utils.JwtTokenUtil;
 import cn.tyt.llmproxy.dto.request.UserChangeNameRequest;
 import cn.tyt.llmproxy.dto.request.UserChangePasswordRequest;
@@ -32,6 +31,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import cn.tyt.llmproxy.security.Roles;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -72,8 +72,8 @@ public class UserServiceImpl implements IUserService {
         user.setUsername(request.getUsername());
         user.setPasswordHash(getPasswordEncoder().encode(request.getPassword()));
         user.setEmail(request.getEmail());
-        // 注册用户默认为 'user' 角色
-        user.setRole(RoleEnum.USER.getValue());
+        // 注册用户默认为 'ROLE_USER' 角色
+        user.setRole(Roles.USER);
         user.setBalance(new BigDecimal("0.00")); // 初始余额为0
         user.setStatus(User.STATUS_ACTIVE);
         user.setCreatedAt(LocalDateTime.now());
@@ -117,11 +117,11 @@ public class UserServiceImpl implements IUserService {
 
     @Override
     @Transactional
-    @PreAuthorize("hasAuthority('root_admin')") // **权限控制**
+    @PreAuthorize("hasAuthority('ROLE_ROOT_ADMIN')") // **权限控制**
     @CachePut(value = "users", key = "#result.username")//缓存一致性
     public User assignRole(Integer userId, String role) {
         // 校验角色是否合法
-        if (!RoleEnum.contains(role)) {
+        if (!Roles.contains(role)) {
             throw new IllegalArgumentException("无效的角色: " + role);
         }
 
@@ -130,9 +130,9 @@ public class UserServiceImpl implements IUserService {
             throw new RuntimeException("用户不存在");
         }
 
-        // root_admin 不能被降级
-        if (RoleEnum.ROOT_ADMIN.getValue().equals(user.getRole())) {
-            throw new SecurityException("不能修改 root_admin 的角色");
+        // ROLE_ROOT_ADMIN 不能被降级
+        if (Roles.ROOT_ADMIN.equals(user.getRole())) {
+            throw new SecurityException("不能修改 ROLE_ROOT_ADMIN 的角色");
         }
 
         user.setRole(role);

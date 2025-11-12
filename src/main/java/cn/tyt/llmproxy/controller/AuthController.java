@@ -49,7 +49,7 @@ public class AuthController {
     }
 
     /**
-     * 为用户分配角色 (仅限 root_admin)
+     * 为用户分配角色 (仅限 ROLE_ROOT_ADMIN)
      * <p>
      * Controller层负责拦截HTTP请求，Service层确保业务逻辑在任何调用场景下（如内部调用）都是安全的。
      *
@@ -57,7 +57,7 @@ public class AuthController {
      * @return 操作成功的响应
      */
     @PostMapping("/assign-role")
-    @PreAuthorize("hasAuthority('root_admin')")
+    @PreAuthorize("hasAuthority('ROLE_ROOT_ADMIN')")
     public Result<?> assignRole(@Valid @RequestBody UserAssignRoleRequest request) {
         userService.assignRole(request.getUserId(), request.getRole());
         return Result.success("角色分配成功");

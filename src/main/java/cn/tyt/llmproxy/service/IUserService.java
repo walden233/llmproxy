@@ -15,7 +15,7 @@ import java.util.List;
 public interface IUserService extends UserDetailsService {
 
     /**
-     * 用户注册，默认角色为 'user'
+     * 用户注册，默认角色为 'ROLE_USER'
      * @param request 注册请求
      * @return 创建的用户实体
      */
@@ -31,7 +31,7 @@ public interface IUserService extends UserDetailsService {
     /**
      * [ROOT_ADMIN 专属] 为用户分配角色
      * @param userId 要分配角色的用户ID
-     * @param role   目标角色 (e.g., "model_admin", "user")
+     * @param role   目标角色 (如 "ROLE_MODEL_ADMIN", "ROLE_USER")
      */
     User assignRole(Integer userId, String role);
 

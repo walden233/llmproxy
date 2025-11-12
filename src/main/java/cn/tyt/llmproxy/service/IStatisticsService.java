@@ -2,6 +2,7 @@ package cn.tyt.llmproxy.service;
 
 import cn.tyt.llmproxy.dto.UsageLogDocument;
 import cn.tyt.llmproxy.dto.request.StatisticsQueryDto;
+import cn.tyt.llmproxy.dto.request.UsageLogQueryDto;
 import cn.tyt.llmproxy.dto.response.ModelStatisticsDto;
 
 import java.math.BigDecimal;
@@ -44,4 +45,8 @@ public interface IStatisticsService {
 
     public List<UsageLogDocument> getLogsForUser(Integer userId);
     public List<UsageLogDocument> getLogsForModel(Integer modelId);
+    /**
+     * 按自定义条件检索 Mongo 用量日志。
+     */
+    List<UsageLogDocument> queryUsageLogs(UsageLogQueryDto queryDto);
 }
