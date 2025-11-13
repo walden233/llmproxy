@@ -1,6 +1,8 @@
 package cn.tyt.llmproxy.service.impl;
 
 import cn.tyt.llmproxy.common.domain.LoginUser;
+import cn.tyt.llmproxy.common.enums.ResultCode;
+import cn.tyt.llmproxy.common.exception.BusinessException;
 import cn.tyt.llmproxy.common.utils.JwtTokenUtil;
 import cn.tyt.llmproxy.dto.request.UserChangeNameRequest;
 import cn.tyt.llmproxy.dto.request.UserChangePasswordRequest;
@@ -62,10 +64,10 @@ public class UserServiceImpl implements IUserService {
     @Transactional
     public User register(UserRegisterRequest request) {
         if (userMapper.selectOne(new LambdaQueryWrapper<User>().eq(User::getUsername, request.getUsername())) != null) {
-            throw new RuntimeException("用户名已存在");
+            throw new BusinessException(ResultCode.DATA_ALREADY_EXISTS, "用户名已存在");
         }
         if (request.getEmail() != null && userMapper.selectOne(new LambdaQueryWrapper<User>().eq(User::getEmail, request.getEmail())) != null) {
-            throw new RuntimeException("邮箱已存在");
+            throw new BusinessException(ResultCode.DATA_ALREADY_EXISTS, "邮箱已存在");
         }
 
         User user = new User();
@@ -74,7 +76,7 @@ public class UserServiceImpl implements IUserService {
         user.setEmail(request.getEmail());
         // 注册用户默认为 'ROLE_USER' 角色
         user.setRole(Roles.USER);
-        user.setBalance(new BigDecimal("0.00")); // 初始余额为0
+        user.setBalance(new BigDecimal("1.00")); // 初始余额为1
         user.setStatus(User.STATUS_ACTIVE);
         user.setCreatedAt(LocalDateTime.now());
         user.setUpdatedAt(LocalDateTime.now());
@@ -96,7 +98,7 @@ public class UserServiceImpl implements IUserService {
 
             return new UserLoginResponse(token, loginUser.getUsername(), loginUser.getUser().getRole());
         } catch (BadCredentialsException e) {
-            throw new RuntimeException("用户名或密码错误");
+            throw new BusinessException(ResultCode.AUTH_ERROR, "用户名或密码错误");
         }
     }
 
@@ -108,7 +110,7 @@ public class UserServiceImpl implements IUserService {
             throw new UsernameNotFoundException("用户: " + username + " 不存在");
         }
         if (User.STATUS_INACTIVE.equals(user.getStatus())) {
-            throw new RuntimeException("用户: " + username + " 已被禁用");
+            throw new BusinessException(ResultCode.ACCOUNT_DISABLED, "用户: " + username + " 已被禁用");
         }
         // **核心改造点：将角色信息封装为 GrantedAuthority**
         List<GrantedAuthority> authorities = Collections.singletonList(new SimpleGrantedAuthority(user.getRole()));
@@ -127,7 +129,7 @@ public class UserServiceImpl implements IUserService {
 
         User user = userMapper.selectById(userId);
         if (user == null) {
-            throw new RuntimeException("用户不存在");
+            throw new BusinessException(ResultCode.DATA_NOT_FOUND, "用户不存在");
         }
 
         // ROLE_ROOT_ADMIN 不能被降级
@@ -173,12 +175,12 @@ public class UserServiceImpl implements IUserService {
         User user = userMapper.selectById(userId);
         if (user == null) {
             // 使用自定义的业务异常更佳
-            throw new RuntimeException("User not found with id: " + userId);
+            throw new BusinessException(ResultCode.DATA_NOT_FOUND, "User not found with id: " + userId);
         }
         user.setBalance(user.getBalance().add(amount));
         int updatedRows = userMapper.updateById(user);
         if (updatedRows == 0)
-            throw new RuntimeException("Failed to credit user balance due to concurrency conflict.");
+            throw new BusinessException(ResultCode.OPERATION_FAILED, "Failed to credit user balance due to concurrency conflict.");
     }
     @Override
     public User getCurrentUser() {

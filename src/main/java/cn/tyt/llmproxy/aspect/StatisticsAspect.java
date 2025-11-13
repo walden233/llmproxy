@@ -1,6 +1,6 @@
 package cn.tyt.llmproxy.aspect;
 
-
+import cn.tyt.llmproxy.common.utils.TraceIdUtil;
 import cn.tyt.llmproxy.context.ModelUsageContext;
 import cn.tyt.llmproxy.service.IStatisticsService;
 import lombok.RequiredArgsConstructor;
@@ -23,41 +23,42 @@ public class StatisticsAspect {
 
     /**
      * 定义切点：拦截所有 IProxyService 接口的实现类中的 public 方法。
-     * 这样可以精确地定位到 chat, generateImage 等代理方法。
-     * 这种方式比直接指定实现类更具扩展性。
      */
     @Pointcut("execution(public * cn.tyt.llmproxy.service.ILangchainProxyService.*(..))")
     public void proxyServiceMethods() {}
 
 
     @Around("proxyServiceMethods() && args(request, userId, accessKeyId, isAsync)")
-    public Object recordStatistics(ProceedingJoinPoint joinPoint,Object request, Integer userId, Integer accessKeyId, Boolean isAsync) throws Throwable {
+    public Object recordStatistics(ProceedingJoinPoint joinPoint, Object request, Integer userId, Integer accessKeyId, Boolean isAsync) throws Throwable {
         boolean success = false;
         try {
-            // 执行目标方法（例如 ProxyServiceImpl.chat()）
             Object result = joinPoint.proceed();
-            success = true; // 如果没有异常，则标记为成功
+            success = true;
             return result;
         } catch (Throwable ex) {
-            // 如果有异常，success 保持 false
-            log.error("代理方法 {} 执行失败", joinPoint.getSignature().getName());
-            throw ex; // 必须重新抛出异常，否则调用方无法感知错误
+            log.error("代理方法 {} 执行失败，traceId={}", joinPoint.getSignature().getName(), TraceIdUtil.getTraceId());
+            throw ex;
         } finally {
-            // 从上下文中获取模型信息
-            ModelUsageContext.ModelUsageInfo usageInfo = ModelUsageContext.get();
+            writeStatistics(userId, accessKeyId, isAsync, success, joinPoint);
+        }
+    }
 
-
-            if (usageInfo != null) {
-                // 如果上下文中有信息，则记录用量
-                log.info("记录模型用量: modelId={}, success={}", usageInfo.getModelId(), success);
-                statisticsService.recordUsageMysql(usageInfo.getModelId(), usageInfo.getModelIdentifier(), success);
-                if(!success)
-                    statisticsService.recordFailMongo(userId, accessKeyId, usageInfo.getModelId(), LocalDateTime.now(),isAsync);
-                ModelUsageContext.clear();
-            } else {
-                // 正常情况下不应该发生，除非有代理方法没有设置上下文
-                log.warn("方法 {} 执行完毕，但 ModelUsageContext 为空，无法记录统计数据。", joinPoint.getSignature().getName());
+    private void writeStatistics(Integer userId, Integer accessKeyId, Boolean isAsync, boolean success, ProceedingJoinPoint joinPoint) {
+        ModelUsageContext.ModelUsageInfo usageInfo = ModelUsageContext.get();
+        try {
+            if (usageInfo == null) {
+                log.warn("方法 {} 执行完毕但 ModelUsageContext 为空，traceId={}", joinPoint.getSignature().getName(), TraceIdUtil.getTraceId());
+                return;
             }
+            log.info("记录模型用量: modelId={}, success={}, traceId={}", usageInfo.getModelId(), success, TraceIdUtil.getTraceId());
+            statisticsService.recordUsageMysql(usageInfo.getModelId(), usageInfo.getModelIdentifier(), success);
+            if (!success) {
+                statisticsService.recordFailMongo(userId, accessKeyId, usageInfo.getModelId(), LocalDateTime.now(), isAsync);
+            }
+        } catch (Exception e) {
+            log.error("记录模型统计失败, traceId={}", TraceIdUtil.getTraceId(), e);
+        } finally {
+            ModelUsageContext.clear();
         }
     }
 }

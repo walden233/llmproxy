@@ -2,10 +2,17 @@ package cn.tyt.llmproxy.common.exception;
 
 import cn.tyt.llmproxy.common.domain.Result;
 import cn.tyt.llmproxy.common.enums.ResultCode;
+import cn.tyt.llmproxy.common.utils.TraceIdUtil;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authorization.AuthorizationDeniedException;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.util.StringUtils;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
@@ -19,9 +26,6 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.validation.ConstraintViolation;
-import jakarta.validation.ConstraintViolationException;
 import java.sql.SQLIntegrityConstraintViolationException;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -33,10 +37,19 @@ import java.util.stream.Collectors;
 @Slf4j
 public class GlobalExceptionHandler {
 
+    private static final String GENERIC_ERROR_MESSAGE = "系统开小差了，请稍后重试";
+
+    @ExceptionHandler(BusinessException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public Result<?> handleBusinessException(BusinessException e, HttpServletRequest request) {
+        log.warn("业务异常: {} - path={} - traceId={}", e.getMessage(), request.getRequestURI(), TraceIdUtil.getTraceId());
+        return Result.error(e.getCode(), e.getMessage());
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Result<?> handleIllegalArgumentException(IllegalArgumentException e, HttpServletRequest request) {
-        log.error("参数异常: {} - 请求路径: {}", e.getMessage(), request.getRequestURI());
+        log.warn("参数异常: {} - path={} - traceId={}", e.getMessage(), request.getRequestURI(), TraceIdUtil.getTraceId());
         return Result.error(ResultCode.PARAM_ERROR.getCode(), e.getMessage());
     }
 
@@ -50,7 +63,7 @@ public class GlobalExceptionHandler {
                 .map(FieldError::getDefaultMessage)
                 .collect(Collectors.joining(", "));
 
-        log.warn("参数校验失败: {} - 请求路径: {}", errorMessage, request.getRequestURI());
+        log.warn("参数校验失败: {} - path={} - traceId={}", errorMessage, request.getRequestURI(), TraceIdUtil.getTraceId());
         return Result.error(ResultCode.PARAM_ERROR.getCode(), errorMessage);
     }
 
@@ -64,7 +77,7 @@ public class GlobalExceptionHandler {
                 .map(FieldError::getDefaultMessage)
                 .collect(Collectors.joining(", "));
 
-        log.warn("参数绑定失败: {} - 请求路径: {}", errorMessage, request.getRequestURI());
+        log.warn("参数绑定失败: {} - path={} - traceId={}", errorMessage, request.getRequestURI(), TraceIdUtil.getTraceId());
         return Result.error(ResultCode.PARAM_ERROR.getCode(), errorMessage);
     }
 
@@ -79,7 +92,7 @@ public class GlobalExceptionHandler {
                 .map(ConstraintViolation::getMessage)
                 .collect(Collectors.joining(", "));
 
-        log.warn("约束校验失败: {} - 请求路径: {}", errorMessage, request.getRequestURI());
+        log.warn("约束校验失败: {} - path={} - traceId={}", errorMessage, request.getRequestURI(), TraceIdUtil.getTraceId());
         return Result.error(ResultCode.PARAM_ERROR.getCode(), errorMessage);
     }
 
@@ -90,7 +103,7 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Result<?> handleMissingParameterException(MissingServletRequestParameterException e, HttpServletRequest request) {
         String errorMessage = String.format("缺少必需的请求参数: %s", e.getParameterName());
-        log.warn("缺少请求参数: {} - 请求路径: {}", errorMessage, request.getRequestURI());
+        log.warn("缺少请求参数: {} - path={} - traceId={}", errorMessage, request.getRequestURI(), TraceIdUtil.getTraceId());
         return Result.error(ResultCode.PARAM_ERROR.getCode(), errorMessage);
     }
 
@@ -101,7 +114,7 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Result<?> handleTypeMismatchException(MethodArgumentTypeMismatchException e, HttpServletRequest request) {
         String errorMessage = String.format("参数类型不匹配: %s", e.getName());
-        log.warn("参数类型不匹配: {} - 请求路径: {}", errorMessage, request.getRequestURI());
+        log.warn("参数类型不匹配: {} - path={} - traceId={}", errorMessage, request.getRequestURI(), TraceIdUtil.getTraceId());
         return Result.error(ResultCode.PARAM_ERROR.getCode(), errorMessage);
     }
 
@@ -111,8 +124,22 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Result<?> handleHttpMessageNotReadableException(HttpMessageNotReadableException e, HttpServletRequest request) {
-        log.warn("HTTP消息不可读: {} - 请求路径: {}", e.getMessage(), request.getRequestURI());
+        log.warn("HTTP消息不可读: {} - path={} - traceId={}", e.getMessage(), request.getRequestURI(), TraceIdUtil.getTraceId());
         return Result.error(ResultCode.PARAM_ERROR.getCode(), "请求参数格式错误");
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    @ResponseStatus(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+    public Result<?> handleMediaTypeNotSupported(HttpMediaTypeNotSupportedException e, HttpServletRequest request) {
+        log.warn("媒体类型不支持: {} - path={} - traceId={}", e.getMessage(), request.getRequestURI(), TraceIdUtil.getTraceId());
+        return Result.error(ResultCode.UNSUPPORTED_MEDIA_TYPE.getCode(), "请求类型不支持");
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    @ResponseStatus(HttpStatus.PAYLOAD_TOO_LARGE)
+    public Result<?> handleMaxUploadSize(MaxUploadSizeExceededException e, HttpServletRequest request) {
+        log.warn("上传文件过大 - path={} - traceId={}", request.getRequestURI(), TraceIdUtil.getTraceId());
+        return Result.error(ResultCode.PARAM_ERROR.getCode(), "上传文件过大");
     }
 
     /**
@@ -122,7 +149,7 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.METHOD_NOT_ALLOWED)
     public Result<?> handleMethodNotSupportedException(HttpRequestMethodNotSupportedException e, HttpServletRequest request) {
         String errorMessage = String.format("不支持的请求方法: %s", e.getMethod());
-        log.warn("请求方法不支持: {} - 请求路径: {}", errorMessage, request.getRequestURI());
+        log.warn("请求方法不支持: {} - path={} - traceId={}", errorMessage, request.getRequestURI(), TraceIdUtil.getTraceId());
         return Result.error(ResultCode.METHOD_NOT_ALLOWED.getCode(), errorMessage);
     }
 
@@ -132,10 +159,9 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(NoHandlerFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public Result<?> handleNoHandlerFoundException(NoHandlerFoundException e, HttpServletRequest request) {
-        log.warn("找不到处理器: {} - 请求路径: {}", e.getMessage(), request.getRequestURI());
+        log.warn("找不到处理器: {} - path={} - traceId={}", e.getMessage(), request.getRequestURI(), TraceIdUtil.getTraceId());
         return Result.error(ResultCode.NOT_FOUND.getCode(), "请求的资源不存在");
     }
-
 
     /**
      * 处理SQL完整性约束违反异常 - 数据库约束错误
@@ -143,7 +169,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(SQLIntegrityConstraintViolationException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Result<?> handleSQLIntegrityConstraintViolationException(SQLIntegrityConstraintViolationException e, HttpServletRequest request) {
-        log.warn("数据库约束违反: {} - 请求路径: {}", e.getMessage(), request.getRequestURI());
+        log.warn("数据库约束违反: {} - path={} - traceId={}", e.getMessage(), request.getRequestURI(), TraceIdUtil.getTraceId());
 
         String errorMessage = "数据操作失败";
         if (e.getMessage().contains("Duplicate entry")) {
@@ -155,20 +181,18 @@ public class GlobalExceptionHandler {
         return Result.error(ResultCode.DATA_INTEGRITY_ERROR.getCode(), errorMessage);
     }
 
-    /**
-     * 处理空指针异常
-     */
-    @ExceptionHandler(NullPointerException.class)
-    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-    public Result<?> handleNullPointerException(NullPointerException e, HttpServletRequest request) {
-        log.error("空指针异常: {} - 请求路径: {}", e.getMessage(), request.getRequestURI());
-        return Result.error(ResultCode.INTERNAL_SERVER_ERROR.getCode(), "系统内部错误:空指针");
+    @ExceptionHandler({AuthorizationDeniedException.class, AccessDeniedException.class})
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public Result<?> handleAuthorizationDeniedException(Exception e, HttpServletRequest request) {
+        log.warn("权限不足: {} - path={} - traceId={}", e.getMessage(), request.getRequestURI(), TraceIdUtil.getTraceId());
+        return Result.error(ResultCode.FORBIDDEN.getCode(), "无权限访问");
     }
 
-    @ExceptionHandler(AuthorizationDeniedException.class)
-    @ResponseStatus(HttpStatus.FORBIDDEN)
-    public Result<?> handleAuthorizationDeniedException(AuthorizationDeniedException e, HttpServletRequest request) {
-        return Result.error(ResultCode.FORBIDDEN.getCode(), "无权限");
+    @ExceptionHandler(AuthenticationException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public Result<?> handleAuthenticationException(AuthenticationException e, HttpServletRequest request) {
+        log.warn("认证失败: {} - path={} - traceId={}", e.getMessage(), request.getRequestURI(), TraceIdUtil.getTraceId());
+        return Result.error(ResultCode.UNAUTHORIZED.getCode(), "请登录后再试");
     }
 
     /**
@@ -177,8 +201,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(RuntimeException.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public Result<?> handleRuntimeException(RuntimeException e, HttpServletRequest request) {
-        log.error("运行时异常: {} - 请求路径: {}", cutMessage(e) , request.getRequestURI());
-        return Result.error(ResultCode.INTERNAL_SERVER_ERROR.getCode(), cutMessage(e));
+        log.error("运行时异常 - path={} - traceId={} - messsge={}", request.getRequestURI(), TraceIdUtil.getTraceId(), e.toString());
+        String message = GENERIC_ERROR_MESSAGE;
+        if(StringUtils.hasText(e.getMessage()))
+            message=e.getMessage();
+        return Result.error(ResultCode.INTERNAL_SERVER_ERROR.getCode(), message);
     }
 
     /**
@@ -187,14 +214,10 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public Result<?> handleException(Exception e, HttpServletRequest request) {
-        log.error("未知异常: {} - 请求路径: {}", cutMessage(e), request.getRequestURI(),e);
-        return Result.error(ResultCode.INTERNAL_SERVER_ERROR.getCode(), cutMessage(e));
+        log.error("未知异常 - path={} - traceId={} - messsge={}", request.getRequestURI(), TraceIdUtil.getTraceId(), e.toString());
+        String message = GENERIC_ERROR_MESSAGE;
+        if(StringUtils.hasText(e.getMessage()))
+            message=e.getMessage();
+        return Result.error(ResultCode.INTERNAL_SERVER_ERROR.getCode(), message);
     }
-
-    private String cutMessage(Exception e) {
-        String message = e.toString();
-        return message.length() > 1000 ? message.substring(0, 1000) + "..." : message;
-    }
-
-
 }

@@ -1,21 +1,23 @@
 package cn.tyt.llmproxy.service.impl;
 
-import cn.tyt.llmproxy.entity.Provider;
-import cn.tyt.llmproxy.entity.ProviderKey;
-import cn.tyt.llmproxy.mapper.ProviderKeyMapper;
-import cn.tyt.llmproxy.mapper.ProviderMapper;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import cn.tyt.llmproxy.common.enums.ModelCapabilityEnum;
+import cn.tyt.llmproxy.common.enums.ResultCode;
 import cn.tyt.llmproxy.common.enums.StatusEnum;
+import cn.tyt.llmproxy.common.exception.BusinessException;
 import cn.tyt.llmproxy.dto.request.ModelCreateRequest;
 import cn.tyt.llmproxy.dto.request.ModelStatusUpdateRequest;
 import cn.tyt.llmproxy.dto.request.ModelUpdateRequest;
 import cn.tyt.llmproxy.dto.response.ModelResponse;
 import cn.tyt.llmproxy.entity.LlmModel;
+import cn.tyt.llmproxy.entity.Provider;
+import cn.tyt.llmproxy.entity.ProviderKey;
 import cn.tyt.llmproxy.mapper.LlmModelMapper;
+import cn.tyt.llmproxy.mapper.ProviderKeyMapper;
+import cn.tyt.llmproxy.mapper.ProviderMapper;
 import cn.tyt.llmproxy.service.ILlmModelService;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -68,14 +70,14 @@ public class LlmModelServiceImpl implements ILlmModelService {
         // 校验 modelIdentifier 唯一性
         if (llmModelMapper.selectOne(new LambdaQueryWrapper<LlmModel>()
                 .eq(LlmModel::getModelIdentifier, request.getModelIdentifier())) != null) {
-            throw new RuntimeException("模型标识 (Model Identifier) 已存在: " + request.getModelIdentifier());
+            throw new BusinessException(ResultCode.DATA_ALREADY_EXISTS, "模型标识 (Model Identifier) 已存在: " + request.getModelIdentifier());
         }
 
         // 校验 capabilities 是否合法
         if (request.getCapabilities() != null) {
             for (String cap : request.getCapabilities()) {
                 if (!ModelCapabilityEnum.isValid(cap)) {
-                    throw new RuntimeException("不支持的模型能力: " + cap);
+                    throw new BusinessException(ResultCode.PARAM_INVALID, "不支持的模型能力: " + cap);
                 }
             }
         }
@@ -113,7 +115,7 @@ public class LlmModelServiceImpl implements ILlmModelService {
     public ModelResponse getModelById(Integer id) {
         LlmModel model = llmModelMapper.selectById(id);
         if (model == null) {
-            throw new RuntimeException("模型未找到, ID: " + id);
+            throw new BusinessException(ResultCode.MODEL_NOT_FOUND, "模型未找到, ID: " + id);
         }
         return convertToResponse(model);
     }
@@ -186,16 +188,16 @@ public class LlmModelServiceImpl implements ILlmModelService {
     public ModelResponse updateModel(Integer id, ModelUpdateRequest request) {
         LlmModel existingModel = llmModelMapper.selectById(id);
         if (existingModel == null) {
-            throw new RuntimeException("模型未找到, ID: " + id);
+            throw new BusinessException(ResultCode.MODEL_NOT_FOUND, "模型未找到, ID: " + id);
         }
 
         // 如果 modelIdentifier 被修改，需要检查唯一性
         if (StringUtils.hasText(request.getModelIdentifier()) &&
                 !request.getModelIdentifier().equals(existingModel.getModelIdentifier())) {
-            if (llmModelMapper.selectOne(new LambdaQueryWrapper<LlmModel>()
+                if (llmModelMapper.selectOne(new LambdaQueryWrapper<LlmModel>()
                     .eq(LlmModel::getModelIdentifier, request.getModelIdentifier())
                     .ne(LlmModel::getId, id)) != null) {
-                throw new RuntimeException("模型标识 (Model Identifier) 已被其他模型使用: " + request.getModelIdentifier());
+                throw new BusinessException(ResultCode.DATA_ALREADY_EXISTS, "模型标识 (Model Identifier) 已被其他模型使用: " + request.getModelIdentifier());
             }
             existingModel.setModelIdentifier(request.getModelIdentifier());
         }
@@ -213,7 +215,7 @@ public class LlmModelServiceImpl implements ILlmModelService {
         if (request.getCapabilities() != null && !request.getCapabilities().isEmpty()) {
             for (String cap : request.getCapabilities()) {
                 if (!ModelCapabilityEnum.isValid(cap)) {
-                    throw new RuntimeException("不支持的模型能力: " + cap);
+                    throw new BusinessException(ResultCode.PARAM_INVALID, "不支持的模型能力: " + cap);
                 }
             }
             existingModel.setCapabilities(request.getCapabilities());
@@ -238,10 +240,10 @@ public class LlmModelServiceImpl implements ILlmModelService {
     public ModelResponse updateModelStatus(Integer id, ModelStatusUpdateRequest request) {
         LlmModel model = llmModelMapper.selectById(id);
         if (model == null) {
-            throw new RuntimeException("模型未找到, ID: " + id);
+            throw new BusinessException(ResultCode.MODEL_NOT_FOUND, "模型未找到, ID: " + id);
         }
         if (request.getStatus() != StatusEnum.AVAILABLE.getCode() && request.getStatus() != StatusEnum.UNAVAILABLE.getCode()) {
-            throw new RuntimeException("无效的状态值: " + request.getStatus());
+            throw new BusinessException(ResultCode.PARAM_INVALID, "无效的状态值: " + request.getStatus());
         }
         model.setStatus(request.getStatus());
         model.setUpdatedAt(LocalDateTime.now());
@@ -254,7 +256,7 @@ public class LlmModelServiceImpl implements ILlmModelService {
     public void deleteModel(Integer id) {
         LlmModel model = llmModelMapper.selectById(id);
         if (model == null) {
-            throw new RuntimeException("模型未找到, ID: " + id + ",无法删除");
+            throw new BusinessException(ResultCode.MODEL_NOT_FOUND, "模型未找到, ID: " + id + ",无法删除");
         }
         llmModelMapper.deleteById(id);
     }

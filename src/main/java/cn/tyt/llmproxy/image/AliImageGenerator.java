@@ -1,6 +1,8 @@
 // src/main/java/cn/tyt/llmproxy/image/AlibabaImageGenerator.java
 package cn.tyt.llmproxy.image;
 
+import cn.tyt.llmproxy.common.enums.ResultCode;
+import cn.tyt.llmproxy.common.exception.BusinessException;
 import cn.tyt.llmproxy.dto.request.ImageGenerationRequest;
 import cn.tyt.llmproxy.dto.request.ImageInput;
 import cn.tyt.llmproxy.dto.response.ImageGenerationResponse;
@@ -75,15 +77,15 @@ public class AliImageGenerator implements ImageGeneratorService {
             System.out.println("--- [Alibaba] Sync call, please wait a moment ----");
             result = imageSynthesis.call(param);
         } catch (ApiException | NoApiKeyException e) {
-            throw new RuntimeException("Alibaba API call failed: " + e.getMessage(), e);
+            throw new BusinessException(ResultCode.UPSTREAM_SERVICE_ERROR, "Alibaba API call failed: " + e.getMessage(), e);
         }
 
         if (result.getOutput().getResults() == null) {
             String message = result.getOutput().getMessage();
             if(message!=null)
-                throw new RuntimeException("[Alibaba] 远端图片生成失败："+message);
+                throw new BusinessException(ResultCode.UPSTREAM_SERVICE_ERROR, "[Alibaba] 远端图片生成失败："+message);
             else
-                throw new RuntimeException("[Alibaba] 远端图片生成失败");
+                throw new BusinessException(ResultCode.UPSTREAM_SERVICE_ERROR, "[Alibaba] 远端图片生成失败");
         }
 
         List<String> outUrls = new ArrayList<>();

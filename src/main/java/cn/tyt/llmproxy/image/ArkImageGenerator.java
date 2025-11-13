@@ -1,6 +1,8 @@
 // src/main/java/cn/tyt/llmproxy/image/VolcengineImageGenerator.java
 package cn.tyt.llmproxy.image;
 
+import cn.tyt.llmproxy.common.enums.ResultCode;
+import cn.tyt.llmproxy.common.exception.BusinessException;
 import cn.tyt.llmproxy.dto.request.ImageGenerationRequest;
 import cn.tyt.llmproxy.dto.request.ImageInput;
 import cn.tyt.llmproxy.dto.response.ImageGenerationResponse;
@@ -103,11 +105,11 @@ public class ArkImageGenerator implements ImageGeneratorService {
             System.out.println("--- [Volcengine] Sync call, please wait a moment ----");
             imagesResponse = service.generateImages(generateRequest);
         } catch (Exception e) {
-            throw new RuntimeException("Volcengine API call failed: " + e.getMessage());
+            throw new BusinessException(ResultCode.UPSTREAM_SERVICE_ERROR, "Volcengine API call failed: " + e.getMessage(), e);
         }
 
         if (imagesResponse.getError() != null) {
-            throw new RuntimeException("[Volcengine] 远端图片生成失败: " + imagesResponse.getError().getMessage());
+            throw new BusinessException(ResultCode.UPSTREAM_SERVICE_ERROR, "[Volcengine] 远端图片生成失败: " + imagesResponse.getError().getMessage());
         }
 
         List<String> outUrls = new ArrayList<>();

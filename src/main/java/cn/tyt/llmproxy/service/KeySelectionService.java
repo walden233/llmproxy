@@ -1,5 +1,7 @@
 package cn.tyt.llmproxy.service;
 
+import cn.tyt.llmproxy.common.enums.ResultCode;
+import cn.tyt.llmproxy.common.exception.BusinessException;
 import cn.tyt.llmproxy.entity.ProviderKey;
 import cn.tyt.llmproxy.mapper.ProviderKeyMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -44,7 +46,7 @@ public class KeySelectionService {
         );
 
         if (activeKeys.isEmpty()) {
-            throw new RuntimeException("提供商 (ID: " + providerId + ") 已无任何[活跃]状态的 Key");
+            throw new BusinessException(ResultCode.DATA_NOT_FOUND, "提供商 (ID: " + providerId + ") 已无任何[活跃]状态的 Key");
         }
 
         // 2. 获取 Redis 中的轮询计数器，实现原子性递增
@@ -71,7 +73,7 @@ public class KeySelectionService {
         }
 
         // 7. 如果循环走完，说明所有“活跃”的 Key 当前都处于“熔断”状态
-        throw new RuntimeException("提供商 (ID: " + providerId + ") 所有 Key 均处于临时熔断状态，请稍后重试");
+        throw new BusinessException(ResultCode.OPERATION_FAILED, "提供商 (ID: " + providerId + ") 所有 Key 均处于临时熔断状态，请稍后重试");
     }
 
     /**

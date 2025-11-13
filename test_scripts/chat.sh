@@ -1,6 +1,6 @@
 curl -X POST \
   http://localhost:8060/v1/chat \
-  -H "ACCESS-KEY: ak-6b390271901d43069d32ab59a9983e1a" \
+  -H "ACCESS-KEY: sk-f27d3372eeaf4f12909d0dbca0050640" \
   -H "Content-Type: application/json" \
   -d '{
     "userMessage": "Hello!",

@@ -1,5 +1,7 @@
 package cn.tyt.llmproxy.service.impl;
 
+import cn.tyt.llmproxy.common.enums.ResultCode;
+import cn.tyt.llmproxy.common.exception.BusinessException;
 import cn.tyt.llmproxy.config.RabbitMQConfig;
 import cn.tyt.llmproxy.dto.request.OrderCreateRequest;
 import cn.tyt.llmproxy.dto.response.OrderResponse;
@@ -70,7 +72,7 @@ public class OrderServiceImpl implements IOrderService {
         Order order = orderMapper.selectById(id);
         if (order == null) {
             // 在实际项目中，最好抛出一个自定义的资源未找到异常
-            throw new RuntimeException("Order not found with id: " + id);
+            throw new BusinessException(ResultCode.DATA_NOT_FOUND, "Order not found with id: " + id);
         }
         return convertToResponse(order);
     }
@@ -79,7 +81,7 @@ public class OrderServiceImpl implements IOrderService {
     public OrderResponse getOrder(String orderNo) {
         Order order = orderMapper.selectOne(new LambdaQueryWrapper<Order>().eq(Order::getOrderNo,orderNo));
         if (order == null) {
-            throw new RuntimeException("Order not found with orderNo: " + orderNo);
+            throw new BusinessException(ResultCode.DATA_NOT_FOUND, "Order not found with orderNo: " + orderNo);
         }
         return convertToResponse(order);
     }
@@ -107,7 +109,7 @@ public class OrderServiceImpl implements IOrderService {
         int updatedRows = orderMapper.updateById(order);
         if (updatedRows == 0) {
             // 如果更新影响的行数为0，说明版本号已变，有并发冲突
-            throw new RuntimeException("Order status update failed due to a concurrency conflict.");
+            throw new BusinessException(ResultCode.DB_ERROR, "Order status update failed due to a concurrency conflict.");
         }
 
         // 4. 调用用户服务增加余额 (关注点分离)
@@ -116,7 +118,7 @@ public class OrderServiceImpl implements IOrderService {
             userService.creditUserBalance(order.getUserId(), order.getAmount());
         } catch (Exception e) {
             // 如果用户服务失败，也需要抛出异常，让整个事务回滚
-            throw new RuntimeException("Failed to credit user balance for order: " + orderNo, e);
+            throw new BusinessException(ResultCode.BUSINESS_ERROR, "Failed to credit user balance for order: " + orderNo, e);
         }
 
         return convertToResponse(order);
@@ -176,7 +178,7 @@ public class OrderServiceImpl implements IOrderService {
         queryWrapper.eq(Order::getOrderNo, orderNo);
         Order order = orderMapper.selectOne(queryWrapper);
         if (order == null) {
-            throw new RuntimeException("Order not found with orderNo: " + orderNo);
+            throw new BusinessException(ResultCode.DATA_NOT_FOUND, "Order not found with orderNo: " + orderNo);
         }
         return order;
     }

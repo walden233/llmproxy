@@ -1,36 +1,36 @@
 package cn.tyt.llmproxy.aspect;
 
 import cn.tyt.llmproxy.common.annotation.LogExecution;
+import cn.tyt.llmproxy.common.utils.SensitiveDataMasker;
+import cn.tyt.llmproxy.common.utils.TraceIdUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.ProceedingJoinPoint;
-import org.aspectj.lang.annotation.*;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.aspectj.lang.annotation.Around;
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.Pointcut;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
-import jakarta.servlet.http.HttpServletRequest;
-import java.time.LocalDateTime;
 import java.util.Arrays;
-import java.util.UUID;
 
 @Aspect
 @Component
 @Slf4j
+@RequiredArgsConstructor
 public class LoggingAspect {
 
-    @Autowired
-    private ObjectMapper objectMapper;
+    private static final int MAX_BODY_LENGTH = 400;
+    private static final int MAX_USER_AGENT_LENGTH = 160;
+
+    private final ObjectMapper objectMapper;
 
     // 定义切点：拦截所有Controller方法
     @Pointcut("execution(* cn.tyt.llmproxy.controller..*.*(..))")
     public void controllerMethods() {}
-
-    // 定义切点：拦截所有Service方法
-    @Pointcut("execution(* cn.tyt.llmproxy.service..*.*(..))")
-    public void serviceMethods() {}
 
     // 定义切点：拦截带有@LogExecution注解的方法
     @Pointcut("@annotation(cn.tyt.llmproxy.common.annotation.LogExecution)")
@@ -41,65 +41,60 @@ public class LoggingAspect {
      */
     @Around("controllerMethods()")
     public Object logControllerExecution(ProceedingJoinPoint joinPoint) throws Throwable {
-        String traceId = UUID.randomUUID().toString().substring(0, 8);
-        String methodName = joinPoint.getSignature().getDeclaringTypeName() + "." + joinPoint.getSignature().getName();
+        HttpServletRequest request = resolveRequest();
+        TraceIdUtil.ensureTraceId();
+        return logAround(joinPoint, request, true);
+    }
 
-        // 获取HTTP请求信息
-        HttpServletRequest request = null;
-        try {
-            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-            if (attributes != null) {
-                request = attributes.getRequest();
-            }
-        } catch (Exception e) {
-            log.warn("无法获取HttpServletRequest: {}", e.getMessage());
-        }
+    /**
+     * 环绕通知：仅记录显式标注 @LogExecution 的 Service 方法，避免和 Controller 重复。
+     */
+    @Around("logExecutionMethods() && !within(cn.tyt.llmproxy.controller..*)")
+    public Object logServiceExecution(ProceedingJoinPoint joinPoint) throws Throwable {
+        TraceIdUtil.ensureTraceId();
+        return logAround(joinPoint, null, false);
+    }
+
+    private Object logAround(ProceedingJoinPoint joinPoint, HttpServletRequest request, boolean includeHttpMeta) throws Throwable {
+        String traceId = TraceIdUtil.getTraceId();
+        String methodName = joinPoint.getSignature().getDeclaringTypeName() + "." + joinPoint.getSignature().getName();
 
         long startTime = System.currentTimeMillis();
         Object result = null;
         Throwable exception = null;
 
         try {
-            // 记录请求开始
-            logRequestStart(traceId, methodName, joinPoint.getArgs(), request);
-
-            // 执行目标方法
+            logRequestStart(traceId, methodName, joinPoint.getArgs(), request, includeHttpMeta);
             result = joinPoint.proceed();
-
             return result;
         } catch (Throwable ex) {
             exception = ex;
             throw ex;
         } finally {
-            // 记录请求结束
-            long endTime = System.currentTimeMillis();
-            long duration = endTime - startTime;
+            long duration = System.currentTimeMillis() - startTime;
             logRequestEnd(traceId, methodName, result, exception, duration);
         }
     }
 
-
-    private void logRequestStart(String traceId, String methodName, Object[] args, HttpServletRequest request) {
+    private void logRequestStart(String traceId, String methodName, Object[] args,
+                                 HttpServletRequest request, boolean includeHttpMeta) {
         StringBuilder logMessage = new StringBuilder();
-        logMessage.append(String.format("[%s] 请求开始: %s", traceId, methodName));
+        logMessage.append(String.format("[%s] 调用开始: %s", traceId, methodName));
 
-        if (request != null) {
+        if (includeHttpMeta && request != null) {
             logMessage.append(String.format(" - %s %s", request.getMethod(), request.getRequestURI()));
 
-            // 记录客户端IP
             String clientIp = getClientIpAddress(request);
             if (clientIp != null) {
                 logMessage.append(String.format(" - IP: %s", clientIp));
             }
 
-            // 记录User-Agent
             String userAgent = request.getHeader("User-Agent");
             if (userAgent != null) {
-                logMessage.append(String.format(" - UA: %s", userAgent));
+                logMessage.append(String.format(" - UA: %s", truncate(userAgent, MAX_USER_AGENT_LENGTH)));
             }
         }
 
-        // 记录请求参数（敏感信息过滤）
         if (args != null && args.length > 0) {
             logMessage.append(String.format(" - 参数: %s", formatArgs(args)));
         }
@@ -109,11 +104,11 @@ public class LoggingAspect {
 
     private void logRequestEnd(String traceId, String methodName, Object result, Throwable exception, long duration) {
         if (exception == null) {
-            log.info("[{}] 请求完成: {} - 耗时: {}ms - 返回值: {}",
+            log.info("[{}] 调用完成: {} - 耗时: {}ms - 返回值: {}",
                     traceId, methodName, duration, formatResult(result));
         } else {
-            log.error("[{}] 请求失败: {} - 耗时: {}ms - 异常: {} - msg: {}",
-                    traceId, methodName, duration, exception.getClass().getName(),formatResult(exception.getMessage()));
+            log.error("[{}] 调用失败: {} - 耗时: {}ms - 异常: {}",
+                    traceId, methodName, duration, exception.getClass().getName(), exception);
         }
     }
 
@@ -123,14 +118,12 @@ public class LoggingAspect {
         }
 
         try {
-            // 过滤敏感信息
             Object[] filteredArgs = Arrays.stream(args)
-                    .map(this::filterSensitiveInfo)
-                    .map(this::formatResult)
+                    .map(SensitiveDataMasker::mask)
                     .toArray();
-            return objectMapper.writeValueAsString(filteredArgs);
+            return truncate(objectMapper.writeValueAsString(filteredArgs), MAX_BODY_LENGTH);
         } catch (Exception e) {
-            return Arrays.toString(args);
+            return truncate(Arrays.toString(args), MAX_BODY_LENGTH);
         }
     }
 
@@ -140,27 +133,29 @@ public class LoggingAspect {
         }
 
         try {
-            Object filteredResult = filterSensitiveInfo(result);
+            Object filteredResult = SensitiveDataMasker.mask(result);
             String resultStr = objectMapper.writeValueAsString(filteredResult);
-            // 限制日志长度
-            return resultStr.length() > 1000 ? resultStr.substring(0, 1000) + "..." : resultStr;
+            return truncate(resultStr, MAX_BODY_LENGTH);
         } catch (Exception e) {
-            return result.toString();
+            return truncate(result.toString(), MAX_BODY_LENGTH);
         }
     }
 
-    private Object filterSensitiveInfo(Object obj) {
-        if (obj == null) {
+    private String truncate(String value, int maxLength) {
+        if (value == null) {
             return null;
         }
+        return value.length() <= maxLength ? value : value.substring(0, maxLength) + "...";
+    }
 
-        String objStr = obj.toString();
-         //简单的敏感信息过滤，实际项目中可以更完善
-        if (objStr.toLowerCase().contains("password")) {
-            return "***FILTERED***";
+    private HttpServletRequest resolveRequest() {
+        try {
+            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            return attributes == null ? null : attributes.getRequest();
+        } catch (Exception e) {
+            log.warn("获取 HttpServletRequest 失败: {}", e.getMessage());
+            return null;
         }
-
-        return obj;
     }
 
     private String getClientIpAddress(HttpServletRequest request) {

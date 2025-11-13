@@ -1,7 +1,9 @@
 package cn.tyt.llmproxy.service.impl;
 
 import cn.tyt.llmproxy.common.enums.ModelCapabilityEnum;
+import cn.tyt.llmproxy.common.enums.ResultCode;
 import cn.tyt.llmproxy.common.enums.StatusEnum;
+import cn.tyt.llmproxy.common.exception.BusinessException;
 import cn.tyt.llmproxy.context.ModelUsageContext;
 import cn.tyt.llmproxy.dto.LlmModelConfigDto;
 import cn.tyt.llmproxy.entity.Provider;
@@ -160,7 +162,7 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
         }
 
         if (response == null || response.aiMessage() == null) {
-            throw new RuntimeException("模型未能生成响应。");
+            throw new BusinessException(ResultCode.MODEL_INFERENCE_ERROR, "模型未能生成响应。");
         }
         BigDecimal cost = calculateChatPrice(response,modelConfig);
         //使用工作队列处理扣费和记录？
@@ -233,10 +235,10 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
         if (modelOpt.isPresent()) {
             LlmModel model = modelOpt.get();
             if (model.getStatus() != StatusEnum.AVAILABLE.getCode()) {
-                throw new RuntimeException("模型 " + model.getDisplayName() + " 当前不可用。");
+                throw new BusinessException(ResultCode.MODEL_OFFLINE, "模型 " + model.getDisplayName() + " 当前不可用。");
             }
             if (!model.getCapabilities().contains(requiredCapability)) {
-                throw new RuntimeException("模型 " + model.getDisplayName() + " 不支持 " + requiredCapability + " 功能。");
+                throw new BusinessException(ResultCode.MODEL_CONFIG_ERROR, "模型 " + model.getDisplayName() + " 不支持 " + requiredCapability + " 功能。");
             }
             return model;
         } else {
@@ -248,7 +250,7 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
                             .orderByAsc(LlmModel::getPriority)
             );
             if (availableModels.isEmpty()) {
-                throw new RuntimeException("没有找到支持 " + requiredCapability + " 功能的可用模型。");
+                throw new BusinessException(ResultCode.MODEL_NOT_FOUND, "没有找到支持 " + requiredCapability + " 功能的可用模型。");
             }
             return availableModels.get(0); // 选择优先级最高的
         }
@@ -257,7 +259,7 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
     private LlmModelConfigDto buildModelConfig(LlmModel model) {
         Provider provider = providerMapper.selectById(model.getProviderId());
         if (provider == null)
-            throw new RuntimeException("没有找到" + model.getModelIdentifier() + " 的提供商");
+            throw new BusinessException(ResultCode.DATA_NOT_FOUND, "没有找到" + model.getModelIdentifier() + " 的提供商");
 
         ProviderKey providerKey = keySelectionService.selectAvailableKey(provider.getId());
 

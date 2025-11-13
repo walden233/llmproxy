@@ -2,7 +2,7 @@ curl -X POST \
 http://localhost:8060/v1/auth/register \
 -H 'Content-Type: application/json' \
 -d '{ 
-"username": "tyt", 
+"username": "test", 
 "password": "password", 
-"email": "tyt@example.com" 
+"email": "test@example.com" 
 }'
