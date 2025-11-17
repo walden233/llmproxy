@@ -6,6 +6,16 @@ import cn.tyt.llmproxy.common.enums.StatusEnum;
 import cn.tyt.llmproxy.common.exception.BusinessException;
 import cn.tyt.llmproxy.context.ModelUsageContext;
 import cn.tyt.llmproxy.dto.LlmModelConfigDto;
+import cn.tyt.llmproxy.dto.openai.OpenAiChatRequest;
+import cn.tyt.llmproxy.dto.openai.OpenAiChatResponse;
+import cn.tyt.llmproxy.dto.openai.OpenAiFunction;
+import cn.tyt.llmproxy.dto.openai.OpenAiFunctionCall;
+import cn.tyt.llmproxy.dto.openai.OpenAiMessage;
+import cn.tyt.llmproxy.dto.openai.OpenAiMessageContent;
+import cn.tyt.llmproxy.dto.openai.OpenAiResponseFormat;
+import cn.tyt.llmproxy.dto.openai.OpenAiTool;
+import cn.tyt.llmproxy.dto.openai.OpenAiToolCall;
+import cn.tyt.llmproxy.entity.LlmModel;
 import cn.tyt.llmproxy.entity.Provider;
 import cn.tyt.llmproxy.entity.ProviderKey;
 import cn.tyt.llmproxy.image.ImageGeneratorFactory;
@@ -14,30 +24,62 @@ import cn.tyt.llmproxy.dto.request.ChatRequest_dto;
 import cn.tyt.llmproxy.dto.request.ImageGenerationRequest;
 import cn.tyt.llmproxy.dto.response.ChatResponse_dto;
 import cn.tyt.llmproxy.dto.response.ImageGenerationResponse;
-import cn.tyt.llmproxy.entity.LlmModel;
 import cn.tyt.llmproxy.mapper.LlmModelMapper;
 import cn.tyt.llmproxy.mapper.ProviderMapper;
 import cn.tyt.llmproxy.service.*;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.JsonNodeType;
+import dev.langchain4j.agent.tool.ToolExecutionRequest;
+import dev.langchain4j.agent.tool.ToolSpecification;
 import dev.langchain4j.data.image.Image;
 import dev.langchain4j.data.message.*;
 import dev.langchain4j.exception.AuthenticationException;
 import dev.langchain4j.exception.RateLimitException;
 import dev.langchain4j.model.chat.request.ChatRequest;
+import dev.langchain4j.model.chat.request.ChatRequestParameters;
+import dev.langchain4j.model.chat.request.ResponseFormat;
+import dev.langchain4j.model.chat.request.ResponseFormatType;
+import dev.langchain4j.model.chat.request.ToolChoice;
+import dev.langchain4j.model.chat.request.json.JsonAnyOfSchema;
+import dev.langchain4j.model.chat.request.json.JsonArraySchema;
+import dev.langchain4j.model.chat.request.json.JsonBooleanSchema;
+import dev.langchain4j.model.chat.request.json.JsonEnumSchema;
+import dev.langchain4j.model.chat.request.json.JsonIntegerSchema;
+import dev.langchain4j.model.chat.request.json.JsonNumberSchema;
+import dev.langchain4j.model.chat.request.json.JsonObjectSchema;
+import dev.langchain4j.model.chat.request.json.JsonReferenceSchema;
+import dev.langchain4j.model.chat.request.json.JsonSchema;
+import dev.langchain4j.model.chat.request.json.JsonSchemaElement;
+import dev.langchain4j.model.chat.request.json.JsonStringSchema;
 import dev.langchain4j.model.chat.response.ChatResponse;
+import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
 import dev.langchain4j.model.openai.OpenAiChatModel;
+import dev.langchain4j.model.openai.OpenAiChatRequestParameters;
+import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
+import dev.langchain4j.model.output.FinishReason;
+import dev.langchain4j.model.output.TokenUsage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 
 import java.math.BigDecimal;
+import java.io.IOException;
+import java.time.Instant;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
 public class LangchainProxyServiceImpl implements ILangchainProxyService {
@@ -56,6 +98,8 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
     private IStatisticsService statisticsService;
     @Autowired
     private IProviderService providerService;
+    @Autowired
+    private ObjectMapper objectMapper;
 
 //    // 简单内存会话存储，生产环境可能需要 Redis 或其他持久化存储
 //    private final Map<String, ChatMemory> chatMemories = new ConcurrentHashMap<>();
@@ -149,17 +193,7 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
         }
         // 调用第三方大模型
         ChatRequest chatRequest = builder.messages(messages).build();
-        //可能会抛出各种异常比如 InvalidRequestException、api余额不足等等，不捕获
-        ChatResponse response = null;
-        try{
-            response = chatModel.chat(chatRequest);
-        } catch (AuthenticationException e){
-            providerService.updateKeyStatus(modelConfig.getProviderKeyId(), false);
-            throw e;
-        } catch (RateLimitException e){
-            keySelectionService.reportKeyFailure(modelConfig.getProviderKeyId(), 5*60);
-            throw e;
-        }
+        ChatResponse response = executeChatRequest(chatModel, chatRequest, modelConfig);
 
         if (response == null || response.aiMessage() == null) {
             throw new BusinessException(ResultCode.MODEL_INFERENCE_ERROR, "模型未能生成响应。");
@@ -173,6 +207,116 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
         statisticsService.recordUsageMongo(userId,accessKeyId,modelConfig.getId(),inputTokensCount,outputTokensCount,null,cost.negate(), LocalDateTime.now(),true,isAsync);
         return new ChatResponse_dto(response.aiMessage().text(), modelConfig.getModelIdentifier(),inputTokensCount,outputTokensCount);
     }
+
+    @Override
+    public OpenAiChatResponse chatV2(OpenAiChatRequest request, Integer userId, Integer accessKeyId, Boolean isAsync) {
+        validateOpenAiRequest(request, false);
+        boolean containsImageInput = containsImageInputs(request);
+        final String requiredCapability = containsImageInput
+                ? ModelCapabilityEnum.IMAGE_TO_TEXT.getValue()
+                : ModelCapabilityEnum.TEXT_TO_TEXT.getValue();
+        LlmModel selectedModel = selectModel(null, request.getModel(), requiredCapability);
+        LlmModelConfigDto modelConfig = buildModelConfig(selectedModel);
+        log.info("v2/chat 使用模型: {} (ID: {}), 所需能力: {}", modelConfig.getDisplayName(), modelConfig.getModelIdentifier(), requiredCapability);
+        ModelUsageContext.set(modelConfig.getId(), modelConfig.getModelIdentifier());
+        OpenAiChatModel chatModel = buildChatLanguageModel(modelConfig, null);
+
+        List<ChatMessage> messages = convertOpenAiMessages(request);
+        ChatRequest chatRequest = buildChatRequest(request, messages, modelConfig.getModelIdentifier());
+        ChatResponse response = executeChatRequest(chatModel, chatRequest, modelConfig);
+
+        if (response == null || response.aiMessage() == null) {
+            throw new BusinessException(ResultCode.MODEL_INFERENCE_ERROR, "模型未能生成响应。");
+        }
+        BigDecimal cost = calculateChatPrice(response,modelConfig);
+        userService.creditUserBalance(userId,cost);
+
+        TokenUsage usage = response.metadata() != null ? response.metadata().tokenUsage() : response.tokenUsage();
+        Integer inputTokensCount = usage != null ? usage.inputTokenCount() : null;
+        Integer outputTokensCount = usage != null ? usage.outputTokenCount() : null;
+        statisticsService.recordUsageMongo(userId,accessKeyId,modelConfig.getId(),inputTokensCount,outputTokensCount,null,cost.negate(), LocalDateTime.now(),true,isAsync);
+        return buildOpenAiChatResponse(response, modelConfig);
+    }
+
+    @Override
+    public SseEmitter chatV2Stream(OpenAiChatRequest request, Integer userId, Integer accessKeyId, Boolean isAsync) {
+        validateOpenAiRequest(request, true);
+        SseEmitter emitter = new SseEmitter(0L);
+        CompletableFuture.runAsync(() -> {
+            try {
+                boolean containsImageInput = containsImageInputs(request);
+                final String requiredCapability = containsImageInput
+                        ? ModelCapabilityEnum.IMAGE_TO_TEXT.getValue()
+                        : ModelCapabilityEnum.TEXT_TO_TEXT.getValue();
+                LlmModel selectedModel = selectModel(null, request.getModel(), requiredCapability);
+                LlmModelConfigDto modelConfig = buildModelConfig(selectedModel);
+                log.info("v2/chat/stream 使用模型: {} (ID: {}), 所需能力: {}", modelConfig.getDisplayName(), modelConfig.getModelIdentifier(), requiredCapability);
+                ModelUsageContext.set(modelConfig.getId(), modelConfig.getModelIdentifier());
+                OpenAiStreamingChatModel streamingModel = buildStreamingChatLanguageModel(modelConfig);
+                List<ChatMessage> messages = convertOpenAiMessages(request);
+                ChatRequest chatRequest = buildChatRequest(request, messages, modelConfig.getModelIdentifier());
+                final String streamId = "chatcmpl-" + UUID.randomUUID();
+                final long created = Instant.now().getEpochSecond();
+                AtomicBoolean roleSignaled = new AtomicBoolean(false);
+                sendInitialStreamChunk(emitter, streamId, created, modelConfig.getModelIdentifier(), roleSignaled);
+                StreamingChatResponseHandler handler = new StreamingChatResponseHandler() {
+                    @Override
+                    public void onPartialResponse(String partialResponse) {
+                        if (!StringUtils.hasText(partialResponse)) {
+                            return;
+                        }
+                        Map<String, Object> payload = buildStreamChunk(streamId, created, modelConfig.getModelIdentifier(), partialResponse, roleSignaled.compareAndSet(false, true));
+                        if (payload != null) {
+                            sendStreamData(emitter, payload);
+                        }
+                    }
+
+                    @Override
+                    public void onCompleteResponse(ChatResponse response) {
+                        try {
+                            BigDecimal cost = calculateChatPrice(response, modelConfig);
+                            userService.creditUserBalance(userId, cost);
+                            TokenUsage usage = response.metadata() != null ? response.metadata().tokenUsage() : response.tokenUsage();
+                            Integer inputTokensCount = usage != null ? usage.inputTokenCount() : null;
+                            Integer outputTokensCount = usage != null ? usage.outputTokenCount() : null;
+                            statisticsService.recordUsageMongo(userId, accessKeyId, modelConfig.getId(), inputTokensCount, outputTokensCount, null, cost.negate(), LocalDateTime.now(), true, isAsync);
+
+                            List<OpenAiToolCall> toolCalls = buildResponseToolCalls(response.aiMessage());
+                            String finishReason = resolveFinishReason(response, toolCalls);
+                            Map<String, Object> finalChunk = buildTerminalStreamChunk(streamId, created, modelConfig.getModelIdentifier(), toolCalls, finishReason);
+                            if (finalChunk != null) {
+                                sendStreamData(emitter, finalChunk);
+                            }
+                            sendStreamDone(emitter);
+                            emitter.complete();
+                        } catch (Exception e) {
+                            handleStreamError(emitter, e);
+                        }
+                    }
+
+                    @Override
+                    public void onError(Throwable error) {
+                        handleStreamError(emitter, error);
+                    }
+                };
+                try {
+                    streamingModel.doChat(chatRequest, handler);
+                } catch (AuthenticationException e) {
+                    providerService.updateKeyStatus(modelConfig.getProviderKeyId(), false);
+                    throw e;
+                } catch (RateLimitException e) {
+                    keySelectionService.reportKeyFailure(modelConfig.getProviderKeyId(), 5 * 60);
+                    throw e;
+                }
+            } catch (Throwable t) {
+                handleStreamError(emitter, t);
+            } finally {
+                ModelUsageContext.clear();
+            }
+        });
+        return emitter;
+    }
+
     private BigDecimal calculateChatPrice(ChatResponse response,LlmModelConfigDto modelConfig){
         int inputTokensCount = response.metadata().tokenUsage().inputTokenCount();
         int outputTokensCount = response.metadata().tokenUsage().outputTokenCount();
@@ -322,5 +466,643 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
         }
 
         return builder.build();
+    }
+
+    private OpenAiStreamingChatModel buildStreamingChatLanguageModel(LlmModelConfigDto modelConfig) {
+        OpenAiStreamingChatModel.OpenAiStreamingChatModelBuilder builder = OpenAiStreamingChatModel.builder()
+                .apiKey(modelConfig.getApiKey())
+                .modelName(modelConfig.getModelIdentifier())
+                .timeout(Duration.ofSeconds(120));
+
+        if (StringUtils.hasText(modelConfig.getUrlBase()) && !modelConfig.getUrlBase().contains("api.openai.com")) {
+            builder.baseUrl(modelConfig.getUrlBase());
+        }
+        return builder.build();
+    }
+
+    private ChatResponse executeChatRequest(OpenAiChatModel chatModel, ChatRequest chatRequest, LlmModelConfigDto modelConfig) {
+        try {
+            return chatModel.chat(chatRequest);
+        } catch (AuthenticationException e) {
+            providerService.updateKeyStatus(modelConfig.getProviderKeyId(), false);
+            throw e;
+        } catch (RateLimitException e) {
+            keySelectionService.reportKeyFailure(modelConfig.getProviderKeyId(), 5 * 60);
+            throw e;
+        }
+    }
+
+    private void validateOpenAiRequest(OpenAiChatRequest request, boolean streaming) {
+        if (request.getMessages() == null || request.getMessages().isEmpty()) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "messages 不能为空");
+        }
+        if (!streaming && Boolean.TRUE.equals(request.getStream())) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "stream=true 仅支持 /v2/chat/stream 接口");
+        }
+        if (streaming && !Boolean.TRUE.equals(request.getStream())) {
+            request.setStream(true);
+        }
+        if (Boolean.TRUE.equals(request.getParallelToolCalls())) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "暂不支持 parallel_tool_calls");
+        }
+    }
+
+    private boolean containsImageInputs(OpenAiChatRequest request) {
+        return request.getMessages().stream()
+                .filter(Objects::nonNull)
+                .filter(msg -> "user".equalsIgnoreCase(msg.getRole()))
+                .anyMatch(msg -> hasImageContent(msg.getContents()));
+    }
+
+    private List<ChatMessage> convertOpenAiMessages(OpenAiChatRequest request) {
+        List<ChatMessage> chatMessages = new ArrayList<>();
+        for (OpenAiMessage message : request.getMessages()) {
+            if (message == null || !StringUtils.hasText(message.getRole())) {
+                continue;
+            }
+            String role = message.getRole().toLowerCase(Locale.ROOT);
+            switch (role) {
+                case "system" -> chatMessages.add(SystemMessage.from(aggregateText(message.getContents())));
+                case "user" -> chatMessages.add(buildUserMessage(message));
+                case "assistant" -> chatMessages.add(buildAssistantMessage(message));
+                case "tool", "function" -> chatMessages.add(buildToolMessage(message));
+                default -> throw new BusinessException(ResultCode.PARAM_ERROR, "不支持的角色: " + role);
+            }
+        }
+        return chatMessages;
+    }
+
+    private ChatMessage buildUserMessage(OpenAiMessage message) {
+        List<Content> contentList = convertUserContents(message.getContents());
+        return UserMessage.from(contentList);
+    }
+
+    private ChatMessage buildAssistantMessage(OpenAiMessage message) {
+        List<ToolExecutionRequest> toolExecutionRequests = toToolExecutionRequests(message.getToolCalls());
+        String text = aggregateText(message.getContents());
+        if (!toolExecutionRequests.isEmpty()) {
+            return AiMessage.from(text, toolExecutionRequests);
+        }
+        return AiMessage.from(text);
+    }
+
+    private ChatMessage buildToolMessage(OpenAiMessage message) {
+        String toolCallId = message.getToolCallId();
+        if (!StringUtils.hasText(toolCallId)) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "tool 消息缺少 tool_call_id");
+        }
+        String text = aggregateText(message.getContents());
+        return ToolExecutionResultMessage.from(toolCallId, message.getName(), text);
+    }
+
+    private List<Content> convertUserContents(List<OpenAiMessageContent> contents) {
+        List<Content> result = new ArrayList<>();
+        if (CollectionUtils.isEmpty(contents)) {
+            result.add(new TextContent(""));
+            return result;
+        }
+        for (OpenAiMessageContent content : contents) {
+            if (content == null) {
+                continue;
+            }
+            if ("image_url".equalsIgnoreCase(content.getType()) && content.getImageUrl() != null) {
+                Image.Builder imageBuilder = Image.builder();
+                if (StringUtils.hasText(content.getImageUrl().getUrl())) {
+                    imageBuilder.url(content.getImageUrl().getUrl());
+                }
+                if (StringUtils.hasText(content.getImageUrl().getBase64Json())) {
+                    imageBuilder.base64Data(content.getImageUrl().getBase64Json());
+                    String mimeType = StringUtils.hasText(content.getImageUrl().getMimeType())
+                            ? content.getImageUrl().getMimeType()
+                            : detectMimeType(content.getImageUrl().getBase64Json());
+                    imageBuilder.mimeType(mimeType);
+                }
+                result.add(new ImageContent(imageBuilder.build()));
+            } else {
+                result.add(new TextContent(content.getText() == null ? "" : content.getText()));
+            }
+        }
+        return result;
+    }
+
+    private boolean hasImageContent(List<OpenAiMessageContent> contents) {
+        if (CollectionUtils.isEmpty(contents)) {
+            return false;
+        }
+        return contents.stream()
+                .filter(Objects::nonNull)
+                .anyMatch(content -> "image_url".equalsIgnoreCase(content.getType()) && content.getImageUrl() != null);
+    }
+
+    private String aggregateText(List<OpenAiMessageContent> contents) {
+        if (CollectionUtils.isEmpty(contents)) {
+            return "";
+        }
+        return contents.stream()
+                .filter(Objects::nonNull)
+                .map(OpenAiMessageContent::getText)
+                .filter(Objects::nonNull)
+                .collect(Collectors.joining());
+    }
+
+    private List<ToolExecutionRequest> toToolExecutionRequests(List<OpenAiToolCall> toolCalls) {
+        if (CollectionUtils.isEmpty(toolCalls)) {
+            return Collections.emptyList();
+        }
+        if (toolCalls.size() > 1) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "暂不支持 parallel tool calls");
+        }
+        return toolCalls.stream()
+                .map(this::buildToolExecutionRequest)
+                .collect(Collectors.toList());
+    }
+
+    private ToolExecutionRequest buildToolExecutionRequest(OpenAiToolCall toolCall) {
+        if (toolCall == null || toolCall.getFunction() == null) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "tool 调用缺少 function 定义");
+        }
+        String id = StringUtils.hasText(toolCall.getId()) ? toolCall.getId() : UUID.randomUUID().toString();
+        return ToolExecutionRequest.builder()
+                .id(id)
+                .name(toolCall.getFunction().getName())
+                .arguments(serializeArguments(toolCall.getFunction().getArguments()))
+                .build();
+    }
+
+    private String serializeArguments(Object arguments) {
+        if (arguments == null) {
+            return "{}";
+        }
+        if (arguments instanceof String str) {
+            return str;
+        }
+        try {
+            return objectMapper.writeValueAsString(arguments);
+        } catch (JsonProcessingException e) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "无法序列化 tool arguments");
+        }
+    }
+
+    private void applyRequestParameters(ChatRequest.Builder builder, OpenAiChatRequest request) {
+        if (request.getTemperature() != null) {
+            builder.temperature(request.getTemperature());
+        }
+        if (request.getTopP() != null) {
+            builder.topP(request.getTopP());
+        }
+        if (request.getMaxTokens() != null) {
+            builder.maxOutputTokens(request.getMaxTokens());
+        }
+        if (request.getFrequencyPenalty() != null) {
+            builder.frequencyPenalty(request.getFrequencyPenalty());
+        }
+        if (request.getPresencePenalty() != null) {
+            builder.presencePenalty(request.getPresencePenalty());
+        }
+        if (!CollectionUtils.isEmpty(request.getStop())) {
+            builder.stopSequences(request.getStop());
+        }
+    }
+
+    private ChatRequest buildChatRequest(OpenAiChatRequest request, List<ChatMessage> messages, String modelName) {
+        ChatRequest.Builder builder = ChatRequest.builder().messages(messages);
+        if (StringUtils.hasText(modelName)) {
+            builder.modelName(modelName);
+        }
+        applyRequestParameters(builder, request);
+        configureResponseFormat(builder, request.getResponseFormat());
+        configureTools(builder, request);
+        ChatRequest chatRequest = builder.build();
+        OpenAiChatRequestParameters parameters = buildOpenAiParameters(chatRequest, request);
+        return chatRequest.toBuilder()
+                .parameters(parameters)
+                .build();
+    }
+
+    private OpenAiChatRequestParameters buildOpenAiParameters(ChatRequest chatRequest, OpenAiChatRequest request) {
+        ChatRequestParameters rawParameters = chatRequest.parameters();
+        OpenAiChatRequestParameters.Builder parametersBuilder = OpenAiChatRequestParameters.builder();
+        if (rawParameters != null) {
+            parametersBuilder.overrideWith(rawParameters);
+        }
+        applyOpenAiSpecificParameters(parametersBuilder, request);
+        return parametersBuilder.build();
+    }
+
+    private void applyOpenAiSpecificParameters(OpenAiChatRequestParameters.Builder builder, OpenAiChatRequest request) {
+        if (request.getParallelToolCalls() != null) {
+            builder.parallelToolCalls(request.getParallelToolCalls());
+        }
+        Map<String, String> metadata = convertMetadata(request.getMetadata());
+        if (!CollectionUtils.isEmpty(metadata)) {
+            builder.metadata(metadata);
+        }
+    }
+
+    private Map<String, String> convertMetadata(Map<String, Object> metadata) {
+        if (metadata == null || metadata.isEmpty()) {
+            return null;
+        }
+        Map<String, String> result = new HashMap<>();
+        metadata.forEach((key, value) -> {
+            if (StringUtils.hasText(key) && value != null) {
+                result.put(key, value.toString());
+            }
+        });
+        return result;
+    }
+
+    private void configureResponseFormat(ChatRequest.Builder builder, OpenAiResponseFormat responseFormat) {
+        if (responseFormat == null || !StringUtils.hasText(responseFormat.getType())) {
+            return;
+        }
+        String type = responseFormat.getType().toLowerCase(Locale.ROOT);
+        switch (type) {
+            case "json_object" -> builder.responseFormat(ResponseFormat.JSON);
+            case "text" -> builder.responseFormat(ResponseFormat.TEXT);
+            case "json_schema" -> {
+                validateJsonSchema(responseFormat);
+                JsonSchema jsonSchema = buildJsonSchema(responseFormat);
+                builder.responseFormat(ResponseFormat.builder()
+                        .type(ResponseFormatType.JSON)
+                        .jsonSchema(jsonSchema)
+                        .build());
+            }
+            default -> throw new BusinessException(ResultCode.PARAM_ERROR, "不支持的 response_format: " + type);
+        }
+    }
+
+    private void configureTools(ChatRequest.Builder builder, OpenAiChatRequest request) {
+        if (CollectionUtils.isEmpty(request.getTools())) {
+            return;
+        }
+        if (request.getToolChoice() != null && request.getToolChoice().isTextual()
+                && "none".equalsIgnoreCase(request.getToolChoice().asText())) {
+            return;
+        }
+        if (request.getToolChoice() != null && request.getToolChoice().getNodeType() == JsonNodeType.OBJECT) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "暂不支持 tool_choice.function 精确指定");
+        }
+        List<ToolSpecification> specifications = request.getTools().stream()
+                .map(this::toToolSpecification)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+        if (specifications.isEmpty()) {
+            return;
+        }
+        builder.toolSpecifications(specifications);
+        ToolChoice toolChoice = resolveToolChoice(request.getToolChoice());
+        if (toolChoice != null) {
+            builder.toolChoice(toolChoice);
+        }
+    }
+
+    private ToolChoice resolveToolChoice(JsonNode toolChoiceNode) {
+        if (toolChoiceNode == null || toolChoiceNode.isNull()) {
+            return null;
+        }
+        if (toolChoiceNode.isTextual()) {
+            String value = toolChoiceNode.asText("");
+            if ("auto".equalsIgnoreCase(value)) {
+                return ToolChoice.AUTO;
+            }
+            if ("required".equalsIgnoreCase(value)) {
+                return ToolChoice.REQUIRED;
+            }
+            if ("none".equalsIgnoreCase(value)) {
+                return null;
+            }
+            throw new BusinessException(ResultCode.PARAM_ERROR, "不支持的 tool_choice: " + value);
+        }
+        return null;
+    }
+
+    private ToolSpecification toToolSpecification(OpenAiTool tool) {
+        if (tool == null || !"function".equalsIgnoreCase(tool.getType())) {
+            return null;
+        }
+        OpenAiFunction function = tool.getFunction();
+        if (function == null || !StringUtils.hasText(function.getName())) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "tool.function.name 不能为空");
+        }
+        JsonObjectSchema parameters = toJsonObjectSchema(function.getParameters());
+        return ToolSpecification.builder()
+                .name(function.getName())
+                .description(function.getDescription())
+                .parameters(parameters)
+                .build();
+    }
+
+    @SuppressWarnings("unchecked")
+    private JsonObjectSchema toJsonObjectSchema(Map<String, Object> schemaMap) {
+        if (schemaMap == null || schemaMap.isEmpty()) {
+            return JsonObjectSchema.builder().build();
+        }
+        JsonSchemaElement element = toJsonSchemaElement(schemaMap);
+        if (element instanceof JsonObjectSchema objectSchema) {
+            return objectSchema;
+        }
+        throw new BusinessException(ResultCode.PARAM_ERROR, "tool parameters 必须是 type=object");
+    }
+
+    @SuppressWarnings("unchecked")
+    private JsonSchemaElement toJsonSchemaElement(Object schemaObj) {
+        if (!(schemaObj instanceof Map<?, ?> schemaMap)) {
+            return JsonStringSchema.builder().build();
+        }
+        if (schemaMap.containsKey("$ref")) {
+            return JsonReferenceSchema.builder().reference(String.valueOf(schemaMap.get("$ref"))).build();
+        }
+        String description = schemaMap.get("description") instanceof String ? (String) schemaMap.get("description") : null;
+        Object typeObj = schemaMap.get("type");
+        String type = typeObj != null ? typeObj.toString() : null;
+        if ("object".equals(type) || (type == null && schemaMap.containsKey("properties"))) {
+            JsonObjectSchema.Builder builder = JsonObjectSchema.builder().description(description);
+            Map<String, Object> props = (Map<String, Object>) schemaMap.get("properties");
+            if (props != null) {
+                for (Map.Entry<String, Object> entry : props.entrySet()) {
+                    JsonSchemaElement child = toJsonSchemaElement(entry.getValue());
+                    if (child != null) {
+                        builder.addProperty(entry.getKey(), child);
+                    }
+                }
+            }
+            Object requiredObj = schemaMap.get("required");
+            List<String> required = toStringList(requiredObj);
+            if (!required.isEmpty()) {
+                builder.required(required);
+            }
+            Object additional = schemaMap.get("additionalProperties");
+            if (additional instanceof Boolean bool) {
+                builder.additionalProperties(bool);
+            }
+            Map<String, Object> definitions = (Map<String, Object>) schemaMap.get("definitions");
+            if (definitions != null && !definitions.isEmpty()) {
+                Map<String, JsonSchemaElement> converted = new LinkedHashMap<>();
+                for (Map.Entry<String, Object> entry : definitions.entrySet()) {
+                    JsonSchemaElement def = toJsonSchemaElement(entry.getValue());
+                    if (def != null) {
+                        converted.put(entry.getKey(), def);
+                    }
+                }
+                builder.definitions(converted);
+            }
+            return builder.build();
+        }
+        if ("array".equals(type)) {
+            JsonArraySchema.Builder builder = JsonArraySchema.builder().description(description);
+            Object items = schemaMap.get("items");
+            if (items != null) {
+                builder.items(toJsonSchemaElement(items));
+            }
+            return builder.build();
+        }
+        if ("integer".equals(type)) {
+            return JsonIntegerSchema.builder().description(description).build();
+        }
+        if ("number".equals(type)) {
+            return JsonNumberSchema.builder().description(description).build();
+        }
+        if ("boolean".equals(type)) {
+            return JsonBooleanSchema.builder().description(description).build();
+        }
+        List<String> enumValues = toStringList(schemaMap.get("enum"));
+        if (!enumValues.isEmpty()) {
+            return JsonEnumSchema.builder().description(description).enumValues(enumValues).build();
+        }
+        Object anyOf = schemaMap.get("anyOf");
+        List<JsonSchemaElement> anyOfElements = toSchemaElementList(anyOf);
+        if (!anyOfElements.isEmpty()) {
+            return JsonAnyOfSchema.builder().description(description).anyOf(anyOfElements).build();
+        }
+        return JsonStringSchema.builder().description(description).build();
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<String> toStringList(Object value) {
+        if (!(value instanceof List<?> list) || list.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return list.stream().map(Object::toString).collect(Collectors.toList());
+    }
+
+    private List<JsonSchemaElement> toSchemaElementList(Object value) {
+        if (!(value instanceof List<?> list) || list.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<JsonSchemaElement> elements = new ArrayList<>();
+        for (Object item : list) {
+            JsonSchemaElement element = toJsonSchemaElement(item);
+            if (element != null) {
+                elements.add(element);
+            }
+        }
+        return elements;
+    }
+
+    private void validateJsonSchema(OpenAiResponseFormat responseFormat) {
+        if (responseFormat.getJsonSchema() == null) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "json_schema 未提供");
+        }
+        if (!StringUtils.hasText(responseFormat.getJsonSchema().getName())) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "json_schema.name 不能为空");
+        }
+        if (responseFormat.getJsonSchema().getSchema() == null
+                || responseFormat.getJsonSchema().getSchema().isEmpty()) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "json_schema.schema 不能为空");
+        }
+    }
+
+    private JsonSchema buildJsonSchema(OpenAiResponseFormat responseFormat) {
+        if (responseFormat.getJsonSchema() == null) {
+            return null;
+        }
+        JsonSchemaElement rootElement = toJsonSchemaElement(responseFormat.getJsonSchema().getSchema());
+        return JsonSchema.builder()
+                .name(responseFormat.getJsonSchema().getName())
+                .rootElement(rootElement)
+                .build();
+    }
+
+    private OpenAiChatResponse buildOpenAiChatResponse(ChatResponse response, LlmModelConfigDto modelConfig) {
+        AiMessage aiMessage = response.aiMessage();
+        List<OpenAiMessageContent> contents = buildResponseContents(aiMessage);
+        List<OpenAiToolCall> toolCalls = buildResponseToolCalls(aiMessage);
+        OpenAiChatResponse.ResponseMessage responseMessage = OpenAiChatResponse.ResponseMessage.builder()
+                .role("assistant")
+                .content(CollectionUtils.isEmpty(contents) ? null : contents)
+                .toolCalls(CollectionUtils.isEmpty(toolCalls) ? null : toolCalls)
+                .build();
+        OpenAiChatResponse.Choice choice = OpenAiChatResponse.Choice.builder()
+                .index(0)
+                .message(responseMessage)
+                .finishReason(resolveFinishReason(response, toolCalls))
+                .build();
+        TokenUsage usage = response.metadata() != null ? response.metadata().tokenUsage() : response.tokenUsage();
+        OpenAiChatResponse.Usage usageDto = OpenAiChatResponse.Usage.builder()
+                .promptTokens(usage != null ? usage.inputTokenCount() : null)
+                .completionTokens(usage != null ? usage.outputTokenCount() : null)
+                .totalTokens(usage != null ? usage.totalTokenCount() : null)
+                .build();
+        return OpenAiChatResponse.builder()
+                .id(deriveResponseId(response))
+                .object("chat.completion")
+                .created(Instant.now().getEpochSecond())
+                .model(modelConfig.getModelIdentifier())
+                .choices(Collections.singletonList(choice))
+                .usage(usageDto)
+                .systemFingerprint(modelConfig.getProviderName())
+                .build();
+    }
+
+    private List<OpenAiMessageContent> buildResponseContents(AiMessage aiMessage) {
+        if (aiMessage == null || !StringUtils.hasText(aiMessage.text())) {
+            return Collections.emptyList();
+        }
+        return Collections.singletonList(OpenAiMessageContent.textContent(aiMessage.text()));
+    }
+
+    private List<OpenAiToolCall> buildResponseToolCalls(AiMessage aiMessage) {
+        if (aiMessage == null || CollectionUtils.isEmpty(aiMessage.toolExecutionRequests())) {
+            return Collections.emptyList();
+        }
+        return aiMessage.toolExecutionRequests().stream()
+                .map(req -> OpenAiToolCall.builder()
+                        .id(req.id())
+                        .type("function")
+                        .function(OpenAiFunctionCall.builder()
+                                .name(req.name())
+                                .arguments(req.arguments())
+                                .build())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    private String resolveFinishReason(ChatResponse response, List<OpenAiToolCall> toolCalls) {
+        FinishReason finishReason = response.finishReason();
+        if (finishReason == null && response.metadata() != null) {
+            finishReason = response.metadata().finishReason();
+        }
+        if (finishReason == null && !CollectionUtils.isEmpty(toolCalls)) {
+            return "tool_calls";
+        }
+        if (finishReason == null) {
+            return "stop";
+        }
+        return switch (finishReason) {
+            case STOP -> "stop";
+            case LENGTH -> "length";
+            case TOOL_EXECUTION -> "tool_calls";
+            case CONTENT_FILTER -> "content_filter";
+            default -> "stop";
+        };
+    }
+
+    private String deriveResponseId(ChatResponse response) {
+        if (response.metadata() != null && StringUtils.hasText(response.metadata().id())) {
+            return response.metadata().id();
+        }
+        if (StringUtils.hasText(response.id())) {
+            return response.id();
+        }
+        return "chatcmpl-" + UUID.randomUUID();
+    }
+
+    private void sendInitialStreamChunk(SseEmitter emitter, String streamId, long created, String modelName, AtomicBoolean roleSignaled) {
+        Map<String, Object> payload = buildStreamChunk(streamId, created, modelName, null, true);
+        if (payload != null) {
+            sendStreamData(emitter, payload);
+            roleSignaled.set(true);
+        }
+    }
+
+    private Map<String, Object> buildStreamChunk(String streamId, long created, String modelName, String text, boolean includeRole) {
+        Map<String, Object> delta = new LinkedHashMap<>();
+        if (includeRole) {
+            delta.put("role", "assistant");
+        }
+        if (StringUtils.hasText(text)) {
+            delta.put("content", Collections.singletonList(OpenAiMessageContent.textContent(text)));
+        }
+        if (delta.isEmpty()) {
+            return null;
+        }
+        Map<String, Object> choice = new LinkedHashMap<>();
+        choice.put("index", 0);
+        choice.put("delta", delta);
+        choice.put("finish_reason", null);
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("id", streamId);
+        payload.put("object", "chat.completion.chunk");
+        payload.put("created", created);
+        payload.put("model", modelName);
+        payload.put("choices", Collections.singletonList(choice));
+        return payload;
+    }
+
+    private Map<String, Object> buildTerminalStreamChunk(String streamId, long created, String modelName,
+                                                         List<OpenAiToolCall> toolCalls, String finishReason) {
+        Map<String, Object> delta = new LinkedHashMap<>();
+        if (!CollectionUtils.isEmpty(toolCalls)) {
+            delta.put("tool_calls", toolCalls);
+        }
+        Map<String, Object> choice = new LinkedHashMap<>();
+        choice.put("index", 0);
+        choice.put("delta", delta);
+        choice.put("finish_reason", finishReason);
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("id", streamId);
+        payload.put("object", "chat.completion.chunk");
+        payload.put("created", created);
+        payload.put("model", modelName);
+        payload.put("choices", Collections.singletonList(choice));
+        return payload;
+    }
+
+    private void sendStreamData(SseEmitter emitter, Object payload) {
+        try {
+            String data = (payload instanceof String str) ? str : objectMapper.writeValueAsString(payload);
+            emitter.send(data);
+        } catch (IOException e) {
+            emitter.completeWithError(e);
+            throw new RuntimeException("发送SSE数据失败", e);
+        }
+    }
+
+    private void sendStreamDone(SseEmitter emitter) {
+        try {
+            emitter.send("[DONE]");
+        } catch (IOException e) {
+            emitter.completeWithError(e);
+            throw new RuntimeException("发送SSE结束信号失败", e);
+        }
+    }
+
+    private void handleStreamError(SseEmitter emitter, Throwable error) {
+        if (emitter == null) {
+            return;
+        }
+        log.error("Streaming chat error", error);
+        Map<String, Object> errorPayload = new LinkedHashMap<>();
+        Map<String, Object> detail = new LinkedHashMap<>();
+        detail.put("message", error.getMessage());
+        detail.put("type", error.getClass().getSimpleName());
+        int code = error instanceof BusinessException businessException
+                ? businessException.getCode()
+                : ResultCode.INTERNAL_SERVER_ERROR.getCode();
+        detail.put("code", code);
+        errorPayload.put("error", detail);
+        try {
+            sendStreamData(emitter, errorPayload);
+        } catch (RuntimeException ignored) {
+            // connection likely closed
+        }
+        try {
+            sendStreamDone(emitter);
+        } catch (RuntimeException ignored) {
+        }
+        emitter.complete();
     }
 }

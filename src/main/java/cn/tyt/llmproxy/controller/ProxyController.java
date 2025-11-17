@@ -1,6 +1,8 @@
 package cn.tyt.llmproxy.controller;
 
 import cn.tyt.llmproxy.common.domain.Result;
+import cn.tyt.llmproxy.dto.openai.OpenAiChatRequest;
+import cn.tyt.llmproxy.dto.openai.OpenAiChatResponse;
 import cn.tyt.llmproxy.dto.request.ChatRequest_dto;
 import cn.tyt.llmproxy.dto.request.ImageGenerationRequest;
 import cn.tyt.llmproxy.dto.response.ChatResponse_dto;
@@ -17,7 +19,9 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -41,13 +45,31 @@ public class ProxyController {
     private IUserService userService;
 
     @PostMapping("/chat")
-    public Result<ChatResponse_dto> chat(@Valid @RequestBody ChatRequest_dto request, @RequestAttribute(AccessKeyInterceptor.USER_ID) Integer userId, @RequestAttribute(AccessKeyInterceptor.ACCESS_KEY_ID) Integer accessKeyId) {
+    public Result<ChatResponse_dto> chat(@Valid @RequestBody ChatRequest_dto request,
+                                         @RequestAttribute(AccessKeyInterceptor.USER_ID) Integer userId,
+                                         @RequestAttribute(AccessKeyInterceptor.ACCESS_KEY_ID) Integer accessKeyId) {
         ChatResponse_dto response = langchainProxyService.chat(request, userId, accessKeyId,false);
         return Result.success(response);
     }
 
+    @PostMapping("/v2/chat")
+    public OpenAiChatResponse chatV2(@Valid @RequestBody OpenAiChatRequest request,
+                                     @RequestAttribute(AccessKeyInterceptor.USER_ID) Integer userId,
+                                     @RequestAttribute(AccessKeyInterceptor.ACCESS_KEY_ID) Integer accessKeyId) {
+        return langchainProxyService.chatV2(request, userId, accessKeyId, false);
+    }
+
+    @PostMapping(value = "/v2/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter chatV2Stream(@Valid @RequestBody OpenAiChatRequest request,
+                                   @RequestAttribute(AccessKeyInterceptor.USER_ID) Integer userId,
+                                   @RequestAttribute(AccessKeyInterceptor.ACCESS_KEY_ID) Integer accessKeyId) {
+        return langchainProxyService.chatV2Stream(request, userId, accessKeyId, false);
+    }
+
     @PostMapping("/generate-image")
-    public Result<ImageGenerationResponse> generateImage(@Valid @RequestBody ImageGenerationRequest request, @RequestAttribute(AccessKeyInterceptor.USER_ID) Integer userId, @RequestAttribute(AccessKeyInterceptor.ACCESS_KEY_ID) Integer accessKeyId) {
+    public Result<ImageGenerationResponse> generateImage(@Valid @RequestBody ImageGenerationRequest request,
+                                                         @RequestAttribute(AccessKeyInterceptor.USER_ID) Integer userId,
+                                                         @RequestAttribute(AccessKeyInterceptor.ACCESS_KEY_ID) Integer accessKeyId) {
         ImageGenerationResponse response = langchainProxyService.generateImage(request, userId, accessKeyId,false);
         return Result.success(response);
     }
@@ -56,7 +78,9 @@ public class ProxyController {
      * 异步聊天接口
      */
     @PostMapping("/async/chat")
-    public Result<Map<String, String>> asyncChat(@Valid @RequestBody ChatRequest_dto request, @RequestAttribute(AccessKeyInterceptor.USER_ID) Integer userId, @RequestAttribute(AccessKeyInterceptor.ACCESS_KEY_ID) Integer accessKeyId) {
+    public Result<Map<String, String>> asyncChat(@Valid @RequestBody ChatRequest_dto request,
+                                                 @RequestAttribute(AccessKeyInterceptor.USER_ID) Integer userId,
+                                                 @RequestAttribute(AccessKeyInterceptor.ACCESS_KEY_ID) Integer accessKeyId) {
         try {
             // 创建异步任务
             Map<String, Object> requestPayload = objectMapper.convertValue(request, new TypeReference<Map<String, Object>>() {});
@@ -82,7 +106,9 @@ public class ProxyController {
      * 异步图片生成接口
      */
     @PostMapping("/async/generate-image")
-    public Result<Map<String, String>> asyncGenerateImage(@Valid @RequestBody ImageGenerationRequest request, @RequestAttribute(AccessKeyInterceptor.USER_ID) Integer userId, @RequestAttribute(AccessKeyInterceptor.ACCESS_KEY_ID) Integer accessKeyId) {
+    public Result<Map<String, String>> asyncGenerateImage(@Valid @RequestBody ImageGenerationRequest request,
+                                                          @RequestAttribute(AccessKeyInterceptor.USER_ID) Integer userId,
+                                                          @RequestAttribute(AccessKeyInterceptor.ACCESS_KEY_ID) Integer accessKeyId) {
         try {
             // 创建异步任务
             Map<String, Object> requestPayload = objectMapper.convertValue(request, new TypeReference<Map<String, Object>>() {});
