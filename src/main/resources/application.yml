@@ -19,19 +19,18 @@ spring:
       key-prefix: llm_proxy
   data:
     redis:
-      host: localhost
-      port: 6379
-      database: 0
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      database: ${REDIS_DATABASE:0}
+      password: ${REDIS_PASSWORD:}
     mongodb:
-      host: localhost
-      port: 27017
-      database: llm-proxy
+      uri: ${MONGODB_URI:mongodb://llmproxy:llmproxy@localhost:27017/llm-proxy?authSource=admin}
   rabbitmq:
-    host: localhost
-    port: 5672
-    username: llmproxy
-    password: llmproxy
-    virtual-host: /llm-proxy
+    host: ${RABBIT_HOST:localhost}
+    port: ${RABBIT_PORT:5672}
+    username: ${RABBIT_USERNAME:llmproxy}
+    password: ${RABBIT_PASSWORD:llmproxy}
+    virtual-host: ${RABBIT_VHOST:/llm-proxy}
     # 开启 publisher-confirms 确保消息成功发送到交换机
     publisher-confirm-type: correlated
 #  cache:

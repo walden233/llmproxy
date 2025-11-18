@@ -3,6 +3,8 @@ package cn.tyt.llmproxy.controller; // 确保包名正确
 import cn.tyt.llmproxy.dto.request.UserLoginRequest;
 import cn.tyt.llmproxy.dto.request.UserRegisterRequest;
 import cn.tyt.llmproxy.dto.response.UserLoginResponse;
+import cn.tyt.llmproxy.entity.User;
+import cn.tyt.llmproxy.mapper.UserMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import cn.tyt.llmproxy.common.domain.Result; // 确保 Result 类的路径正确
 import org.junit.jupiter.api.BeforeEach;
@@ -21,7 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class AuthControllerTests extends BaseTest {
 
     @Autowired
-    private AdminMapper adminMapper;
+    private UserMapper adminMapper;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -53,7 +55,7 @@ public class AuthControllerTests extends BaseTest {
                 .andExpect(jsonPath("$.data").value(testUsername));
 
         // 验证数据库
-        Admin savedAdmin = adminMapper.selectOne(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<Admin>().eq("username", testUsername));
+        User savedAdmin = adminMapper.selectOne(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<User>().eq("username", testUsername));
         assertThat(savedAdmin).isNotNull();
         assertThat(savedAdmin.getEmail()).isEqualTo(testEmail);
         assertThat(passwordEncoder.matches(testPassword, savedAdmin.getPasswordHash())).isTrue();

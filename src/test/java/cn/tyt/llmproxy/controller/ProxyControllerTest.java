@@ -5,6 +5,7 @@ import cn.tyt.llmproxy.dto.request.ChatRequest_dto;
 import cn.tyt.llmproxy.dto.request.ImageGenerationRequest;
 import cn.tyt.llmproxy.dto.request.ImageInput;
 import cn.tyt.llmproxy.dto.response.UserLoginResponse;
+import cn.tyt.llmproxy.mapper.UserMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import cn.tyt.llmproxy.common.domain.Result;
 
@@ -27,7 +28,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class ProxyControllerTest extends BaseTest {
     @Autowired
-    private AdminMapper adminMapper;
+    private UserMapper adminMapper;
 
     private final String MOCK_CHAT_MODEL_ID = "deepseek-chat";
     private String authToken; // JWT Token

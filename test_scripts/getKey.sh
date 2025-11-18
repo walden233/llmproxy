@@ -1,2 +1,2 @@
 curl -X GET 'http://localhost:8060/v1/access-keys' \
--H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0eXQiLCJpYXQiOjE3NjI5MzY3MzQsImV4cCI6MjA3ODI5NjczNH0.GJZBIP761H3LX-euVSzMTL9cdFI_xbnlkdd0hp5frD0"
+-H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0IiwiaWF0IjoxNzYzMzY3NzcxLCJleHAiOjIwNzg3Mjc3NzF9.mHhBRiBRhRqh_NG-cbzkV-qP3KkiX4aQYBl90JRw4XA"

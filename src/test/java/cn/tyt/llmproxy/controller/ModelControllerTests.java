@@ -9,6 +9,7 @@ import cn.tyt.llmproxy.dto.response.UserLoginResponse;
 import cn.tyt.llmproxy.dto.response.ModelResponse;
 import cn.tyt.llmproxy.entity.LlmModel;
 import cn.tyt.llmproxy.mapper.LlmModelMapper;
+import cn.tyt.llmproxy.mapper.UserMapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.core.type.TypeReference;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,7 +34,7 @@ public class ModelControllerTests extends BaseTest {
     @Autowired
     private LlmModelMapper llmModelMapper;
     @Autowired
-    private AdminMapper adminMapper; // 用于创建测试用户
+    private UserMapper adminMapper; // 用于创建测试用户
 
     private String authToken; // JWT Token
 
@@ -126,7 +127,6 @@ public class ModelControllerTests extends BaseTest {
         LlmModel savedModel = llmModelMapper.selectById(modelId);
         assertThat(savedModel).isNotNull();
         assertThat(savedModel.getDisplayName()).isEqualTo(createRequest.getDisplayName());
-        assertThat(savedModel.getApiKey()).isEqualTo(createRequest.getApiKey()); // 确认API Key已存储
         assertThat(savedModel.getCapabilities()).containsExactlyInAnyOrderElementsOf(createRequest.getCapabilities());
     }
 

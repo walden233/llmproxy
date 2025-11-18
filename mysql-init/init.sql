@@ -1,8 +1,8 @@
 -- 如果数据库不存在则创建
-CREATE DATABASE IF NOT EXISTS `model_service_new` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS `model_service` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- 切换到新数据库
-USE `model_service_new`;
+USE `model_service`;
 
 -- 1. 用户表 (替代原 admins 表)
 CREATE TABLE `users` (

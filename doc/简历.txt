@@ -1,0 +1,15 @@
+  LLMProxy 多模型代理平台
+  后端开发
+  项目描述：LLMProxy 是面向企业级 AI 聚合场景的 Spring Boot 3.x 后端，整合 LangChain4j、阿里 DashScope、火山 Ark 等模型能力，对外提供统一的聊天/图像/异步 API，并支撑 Access Key 计费、模型优
+  选、日志审计与管理端运营。
+  核心技术：Spring Boot 3.x、Spring Security、JWT、LangChain4j、MyBatis-Plus、RabbitMQ、Redis、MongoDB、MySQL、Docker、SSE
+  核心职责：
+  ⚫ 主导多模型接入规范与服务编排，抽象模型/供应商/Key 管理并设计统一鉴权（JWT + Access Key）体系。
+  ⚫ 负责 ProxyController、StatisticsController 等核心接口的设计实现，涵盖同步/流式/异步聊天、图像生成、用量统计与日志查询。
+  ⚫ 构建 RabbitMQ 驱动的异步任务与订单延时取消链路，配套 MongoDB + MySQL 复合统计与幂等方案。
+  技术要点：
+  ⚫ 基于 Spring Security + JWT + 自定义拦截器实现双通道鉴权，覆盖管理端与 Access Key 调用链。
+  ⚫ 使用 LangChain4j + OpenAI 兼容协议提供多模态对话、函数调用、SSE 流式输出，并按模型能力/优先级动态路由。
+  ⚫ 构建 RabbitMQ 死信/延迟机制处理订单超时与异步推理任务，保障队列高可用。
+  ⚫ 通过 Redis/多数据源记录模型用量，MySQL Upsert 日统计 + MongoDB 细粒度 UsageLog，实现成本结算与风控审计。
+  ⚫ 统一 Result 规范、全局异常和 TraceId 日志，支撑容器化部署与 CI/CD。
