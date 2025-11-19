@@ -8,6 +8,7 @@ import cn.tyt.llmproxy.service.IOrderService;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -37,12 +38,22 @@ public class OrderController {
      * 获取订单列表（分页和条件查询）
      */
     @GetMapping
+    @PreAuthorize("hasAuthority('ROLE_ROOT_ADMIN')")
     public Result<IPage<OrderResponse>> getAllOrders(
             @RequestParam(defaultValue = "1") int pageNum,
             @RequestParam(defaultValue = "10") int pageSize,
             @RequestParam(required = false) Integer userId,
             @RequestParam(required = false) String status) {
         return Result.success(orderService.getAllOrders(pageNum, pageSize, userId, status));
+    }
+
+
+    @GetMapping("/my")
+    public Result<IPage<OrderResponse>> getMyOrders(
+            @RequestParam(defaultValue = "1") int pageNum,
+            @RequestParam(defaultValue = "10") int pageSize,
+            @RequestParam(required = false) String status) {
+        return Result.success(orderService.getOrdersForCurrentUser(pageNum, pageSize, status));
     }
 
     /**

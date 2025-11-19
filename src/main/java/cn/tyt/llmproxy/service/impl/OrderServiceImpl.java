@@ -6,7 +6,9 @@ import cn.tyt.llmproxy.config.RabbitMQConfig;
 import cn.tyt.llmproxy.dto.request.OrderCreateRequest;
 import cn.tyt.llmproxy.dto.response.OrderResponse;
 import cn.tyt.llmproxy.entity.Order;
+import cn.tyt.llmproxy.entity.User;
 import cn.tyt.llmproxy.mapper.OrderMapper;
+import cn.tyt.llmproxy.security.Roles;
 import cn.tyt.llmproxy.service.IOrderService;
 import cn.tyt.llmproxy.service.IUserService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -79,10 +81,9 @@ public class OrderServiceImpl implements IOrderService {
 
     @Override
     public OrderResponse getOrder(String orderNo) {
-        Order order = orderMapper.selectOne(new LambdaQueryWrapper<Order>().eq(Order::getOrderNo,orderNo));
-        if (order == null) {
-            throw new BusinessException(ResultCode.DATA_NOT_FOUND, "Order not found with orderNo: " + orderNo);
-        }
+        Order order = findOrderByOrderNo(orderNo);
+        User currentUser = userService.getCurrentUser();
+        assertOrderAccess(order, currentUser);
         return convertToResponse(order);
     }
 
@@ -90,6 +91,8 @@ public class OrderServiceImpl implements IOrderService {
     @Transactional
     public OrderResponse paySuccess(String orderNo) { // 建议返回 OrderResponse
         Order order = findOrderByOrderNo(orderNo);
+        User currentUser = userService.getCurrentUser();
+        assertOrderAccess(order, currentUser);
 
         // 1. 幂等性检查：如果订单状态不是 PENDING，直接返回当前状态，表示已处理过
         if (!Order.STATUS_PENDING.equals(order.getStatus())) {
@@ -128,6 +131,8 @@ public class OrderServiceImpl implements IOrderService {
     @Transactional
     public OrderResponse cancelOrder(String orderNo) {
         Order order = findOrderByOrderNo(orderNo);
+        User currentUser = userService.getCurrentUser();
+        assertOrderAccess(order, currentUser);
         // 只有待支付的订单才能被取消
         if (Order.STATUS_COMPLETED.equals(order.getStatus())) {
             throw new IllegalStateException("Only PENDING orders can be cancelled.");
@@ -157,20 +162,13 @@ public class OrderServiceImpl implements IOrderService {
 
     @Override
     public IPage<OrderResponse> getAllOrders(int pageNum, int pageSize, Integer userId, String status) {
-        Page<Order> page = new Page<>(pageNum, pageSize);
-        LambdaQueryWrapper<Order> queryWrapper = new LambdaQueryWrapper<>();
+        return paginateOrders(pageNum, pageSize, userId, status);
+    }
 
-        // 添加查询条件
-        queryWrapper.eq(Objects.nonNull(userId), Order::getUserId, userId);
-        queryWrapper.eq(StringUtils.hasText(status), Order::getStatus, status);
-
-        // 默认按创建时间降序排序
-        queryWrapper.orderByDesc(Order::getCreatedAt);
-
-        IPage<Order> orderPage = orderMapper.selectPage(page, queryWrapper);
-
-        // 将 IPage<Order> 转换为 IPage<OrderResponse>
-        return orderPage.convert(this::convertToResponse);
+    @Override
+    public IPage<OrderResponse> getOrdersForCurrentUser(int pageNum, int pageSize, String status) {
+        User currentUser = userService.getCurrentUser();
+        return paginateOrders(pageNum, pageSize, currentUser.getId(), status);
     }
 
     private Order findOrderByOrderNo(String orderNo) {
@@ -183,9 +181,32 @@ public class OrderServiceImpl implements IOrderService {
         return order;
     }
 
+    private IPage<OrderResponse> paginateOrders(int pageNum, int pageSize, Integer userId, String status) {
+        Page<Order> page = new Page<>(pageNum, pageSize);
+        LambdaQueryWrapper<Order> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(Objects.nonNull(userId), Order::getUserId, userId);
+        queryWrapper.eq(StringUtils.hasText(status), Order::getStatus, status);
+        queryWrapper.orderByDesc(Order::getCreatedAt);
+        IPage<Order> orderPage = orderMapper.selectPage(page, queryWrapper);
+        return orderPage.convert(this::convertToResponse);
+    }
+
     private OrderResponse convertToResponse(Order order) {
         OrderResponse response = new OrderResponse();
         BeanUtils.copyProperties(order, response);
         return response;
+    }
+
+    private void assertOrderAccess(Order order, User currentUser) {
+        if (currentUser == null) {
+            throw new BusinessException(ResultCode.UNAUTHORIZED, "Login required.");
+        }
+        if (!isRootUser(currentUser) && !Objects.equals(order.getUserId(), currentUser.getId())) {
+            throw new BusinessException(ResultCode.PERMISSION_DENIED, "No permission to operate this order.");
+        }
+    }
+
+    private boolean isRootUser(User user) {
+        return user != null && Roles.ROOT_ADMIN.equals(user.getRole());
     }
 }

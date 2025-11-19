@@ -43,4 +43,13 @@ public interface IOrderService {
      * @return 分页的订单列表
      */
     IPage<OrderResponse> getAllOrders(int pageNum, int pageSize, Integer userId, String status);
+
+    /**
+     * 获取当前登录用户的订单列表
+     * @param pageNum 当前页码
+     * @param pageSize 每页数量
+     * @param status 订单状态 (可选)
+     * @return 订单分页数据
+     */
+    IPage<OrderResponse> getOrdersForCurrentUser(int pageNum, int pageSize, String status);
 }

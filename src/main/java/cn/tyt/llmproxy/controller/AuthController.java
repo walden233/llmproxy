@@ -6,15 +6,13 @@ import cn.tyt.llmproxy.dto.request.UserChangePasswordRequest;
 import cn.tyt.llmproxy.dto.request.UserLoginRequest;
 import cn.tyt.llmproxy.dto.request.UserRegisterRequest;
 import cn.tyt.llmproxy.dto.response.UserLoginResponse;
+import cn.tyt.llmproxy.dto.response.UserProfileResponse;
 import cn.tyt.llmproxy.entity.User;
-import cn.tyt.llmproxy.service.IAccessKeyService;
 import cn.tyt.llmproxy.service.IUserService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/v1/auth")
@@ -34,6 +32,11 @@ public class AuthController {
     public Result<UserLoginResponse> login(@Valid @RequestBody UserLoginRequest request) {
         UserLoginResponse response = userService.login(request);
         return Result.success(response);
+    }
+
+    @GetMapping("/me")
+    public Result<UserProfileResponse> currentUserProfile() {
+        return Result.success(UserProfileResponse.fromEntity(userService.getCurrentUser()));
     }
 
     /**
