@@ -3,6 +3,7 @@ package cn.tyt.llmproxy.dto.response;
 import lombok.Data;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Data
 public class ModelResponse {
@@ -11,6 +12,7 @@ public class ModelResponse {
     private String modelIdentifier;
     // 注意：不返回 apiKey
     private List<String> capabilities;
+    private Map<String, Object> pricing;
     private Integer priority;
     private Integer status;
     private LocalDateTime createdAt;

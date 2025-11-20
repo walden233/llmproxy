@@ -2,10 +2,7 @@ package cn.tyt.llmproxy.controller;
 
 import cn.tyt.llmproxy.dto.request.StatisticsQueryDto;
 import cn.tyt.llmproxy.dto.response.ModelStatisticsDto;
-import cn.tyt.llmproxy.entity.ModelDailyStat;
-import cn.tyt.llmproxy.mapper.ModelDailyStatMapper;
 import cn.tyt.llmproxy.service.IStatisticsService;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import cn.tyt.llmproxy.common.domain.Result;
 import cn.tyt.llmproxy.dto.request.ModelCreateRequest;
@@ -13,16 +10,16 @@ import cn.tyt.llmproxy.dto.request.ModelStatusUpdateRequest;
 import cn.tyt.llmproxy.dto.request.ModelUpdateRequest;
 import cn.tyt.llmproxy.dto.response.ModelResponse;
 import cn.tyt.llmproxy.service.ILlmModelService;
-import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
         import java.util.List;
 
 @RestController
 @RequestMapping("/v1/models")
+@PreAuthorize("hasAnyAuthority('ROLE_ROOT_ADMIN','ROLE_MODEL_ADMIN')")
 public class ModelController {
 
     @Autowired
@@ -36,11 +33,13 @@ public class ModelController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
     public Result<ModelResponse> getModelById(@PathVariable Integer id) {
         return Result.success(modelService.getModelById(id));
     }
 
     @GetMapping
+    @PreAuthorize("isAuthenticated()")
     public Result<IPage<ModelResponse>> getAllModels(
             @RequestParam(defaultValue = "1") int pageNum,
             @RequestParam(defaultValue = "10") int pageSize,

@@ -79,8 +79,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // 1. 公开访问的端点
                         .requestMatchers("/v1/auth/login", "/v1/auth/register", "/v1/chat","/v1/v2/chat","/v1/v2/chat/stream", "/v1/generate-image","v1/async/chat","v1/async/generate-image").permitAll()
-                        // 2. 仅限 MODEL_ADMIN 和 ROOT_ADMIN 访问的模型管理端点
-                        .requestMatchers("/v1/models/**").hasAnyAuthority(Roles.MODEL_ADMIN, Roles.ROOT_ADMIN)
+//                        // 2. 仅限 MODEL_ADMIN 和 ROOT_ADMIN 访问的模型管理端点
+//                        .requestMatchers("/v1/models/**").hasAnyAuthority(Roles.MODEL_ADMIN, Roles.ROOT_ADMIN)
 //                        // 3. 仅限 ROOT_ADMIN 访问的用户管理/权限分配端点 (假设有)
 //                        .requestMatchers("/v1/admin/users/**").hasAuthority(Roles.ROOT_ADMIN)
 
