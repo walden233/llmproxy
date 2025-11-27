@@ -101,7 +101,7 @@ mvn clean package && java -jar target/llmproxy-0.0.1-SNAPSHOT.jar
 ## 文档 & 调试
 
 - `AGENTS.md`：项目速览、目录、关键流程说明。
-- `doc/api_v2.md`：最新 API 说明（参考 `doc/大模型代理后端API-250728.md` 重写）。
+- `doc/api_v2.md`：最新 API 说明。
 - `doc/docker-deployment.md`：容器化部署步骤。
 - `doc/llmproxy_pytest/proxytest.py`：Python 端到端示例。
 - `test_scripts/`：涵盖鉴权、模型管理、聊天/图像（含 `/v2/chat`、SSE）的示例脚本。

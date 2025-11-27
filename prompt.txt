@@ -1,0 +1,32 @@
+# Role
+你是一位资深的后端技术专家和技术文档工程师。
+
+# Task
+请根据AGENTS.md和doc/大模型代理后端API-251117.md，按照要求修改api文档。重写并扩充为一份面向**前端开发者**和**第三方集成商**的标准 RESTful API 参考文档。
+
+# Requirements
+请遵循以下修改原则：
+
+1.  **格式标准化**：对于每个 API 接口，必须包含以下部分：
+    * **接口描述**：简述功能。
+    * **Method & URL**：例如 `POST /v1/chat/completions`。
+    * **鉴权方式**：明确是 `Authorization: Bearer` 还是 `ACCESS-KEY`。
+    * **请求参数 (Request)**：
+        * 区分 Path, Query, Body 参数。
+        * **必须**提供一个完整的 JSON 请求体示例（不要只列字段名）。
+        * 对于 `Map` 类型的字段（如 `pricing`, `options`），请补充具体的 Key-Value 结构示例。
+    * **响应参数 (Response)**：
+        * **必须**提供成功（200）的 JSON 响应示例。
+        * 列出常见的错误响应示例。
+2.  **补充枚举与字典**：
+    * 在文档附录部分，列出所有枚举值的具体定义（如 `ModelCapabilityEnum` 的所有可用值，`ResultCode` 的具体数字和含义）。
+3.  **明确流式协议**：
+    * 在 `/v1/v2/chat/stream` 部分，详细展示 SSE (Server-Sent Events) 的数据包格式（例如 `data: {...}`），不仅仅是 JSON 结构。
+4.  **移除内部实现细节**：
+    * 移除关于 Spring Boot 类名（如 `UserServiceImpl`）、数据库表结构（MyBatis-Plus IPage）等对调用者无用的后端实现细节，只保留接口契约内容。
+5.  **OpenAI 兼容性**：
+    * 在兼容接口部分，明确指出与官方 OpenAI API 的差异（如有）。
+6. 针对src/main/java/cn/tyt/llmproxy/controller中的每个接口，阅读返回对象类型的dto，在api文档中一一对应写好
+
+# Output Format
+请使用清晰的 Markdown 格式输出，使用表格展示参数说明，使用代码块展示 JSON 示例。

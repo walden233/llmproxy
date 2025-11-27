@@ -3,7 +3,7 @@
 # Sample for consuming the /v2/chat/stream endpoint (Server-Sent Events).
 
 curl -N -X POST \
-  http://localhost:8060/v1/v2/chat/stream \
+  http://localhost:8060/v2/chat/stream \
   -H "ACCESS-KEY: sk-f27d3372eeaf4f12909d0dbca0050640" \
   -H "Content-Type: application/json" \
   -d '{

@@ -3,7 +3,7 @@
 # Basic sample for hitting the /v2/chat endpoint with an OpenAI-style payload.
 
 curl -X POST \
-  http://localhost:8060/v1/v2/chat \
+  http://localhost:8060/v2/chat \
   -H "ACCESS-KEY: sk-f27d3372eeaf4f12909d0dbca0050640" \
   -H "Content-Type: application/json" \
   -d '{

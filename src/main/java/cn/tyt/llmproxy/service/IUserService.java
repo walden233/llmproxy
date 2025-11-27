@@ -5,9 +5,12 @@ import cn.tyt.llmproxy.dto.request.UserChangePasswordRequest;
 import cn.tyt.llmproxy.dto.request.UserLoginRequest;
 import cn.tyt.llmproxy.dto.request.UserRegisterRequest;
 import cn.tyt.llmproxy.dto.response.UserLoginResponse;
+import cn.tyt.llmproxy.dto.response.UserProfileResponse;
 import cn.tyt.llmproxy.entity.AccessKey;
 import cn.tyt.llmproxy.entity.User;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -47,4 +50,6 @@ public interface IUserService extends UserDetailsService {
     void creditUserBalance(Integer userId, BigDecimal amount);
 
     public User getCurrentUser();
+
+    IPage<UserProfileResponse> findAllUsers(int pageNum, int pageSize, String role, String sortBy, String sortOrder);
 }

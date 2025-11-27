@@ -24,7 +24,7 @@ spring:
       database: ${REDIS_DATABASE:0}
       password: ${REDIS_PASSWORD:}
     mongodb:
-      uri: ${MONGODB_URI:mongodb://llmproxy:llmproxy@localhost:27017/llm-proxy?authSource=admin}
+      uri: ${MONGODB_URI:mongodb://localhost:27017/llm-proxy?authSource=admin}
   rabbitmq:
     host: ${RABBIT_HOST:localhost}
     port: ${RABBIT_PORT:5672}

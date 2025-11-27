@@ -3,7 +3,7 @@
 # /v2/chat sample where the user message mixes text and an inline image.
 
 curl -X POST \
-  http://localhost:8060/v1/v2/chat \
+  http://localhost:8060/v2/chat \
   -H "ACCESS-KEY: sk-f27d3372eeaf4f12909d0dbca0050640" \
   -H "Content-Type: application/json" \
   -d '{

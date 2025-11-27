@@ -9,12 +9,15 @@ import cn.tyt.llmproxy.dto.request.UserChangePasswordRequest;
 import cn.tyt.llmproxy.dto.request.UserLoginRequest;
 import cn.tyt.llmproxy.dto.request.UserRegisterRequest;
 import cn.tyt.llmproxy.dto.response.UserLoginResponse;
+import cn.tyt.llmproxy.dto.response.UserProfileResponse;
 import cn.tyt.llmproxy.entity.AccessKey;
 import cn.tyt.llmproxy.entity.User;
 import cn.tyt.llmproxy.mapper.AccessKeyMapper;
 import cn.tyt.llmproxy.mapper.UserMapper;
 import cn.tyt.llmproxy.service.IUserService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
@@ -45,8 +48,6 @@ public class UserServiceImpl implements IUserService {
 
     @Autowired
     private UserMapper userMapper;
-    @Autowired
-    private AccessKeyMapper accessKeyMapper;
     @Autowired
     private ApplicationContext applicationContext;
     @Autowired
@@ -193,5 +194,42 @@ public class UserServiceImpl implements IUserService {
             return ((LoginUser) principal).getUser();
         }
         throw new IllegalStateException("The principal is not an instance of LoginUser.");
+    }
+
+    @Override
+    public IPage<UserProfileResponse> findAllUsers(int pageNum, int pageSize, String role, String sortBy, String sortOrder) {
+        Page<User> page = new Page<>(pageNum, pageSize);
+        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
+
+        if (role != null && !role.isEmpty()) {
+            wrapper.eq(User::getRole, role);
+        }
+
+        if (sortBy != null && !sortBy.isEmpty()) {
+            boolean isAsc = "asc".equalsIgnoreCase(sortOrder);
+            switch (sortBy) {
+                case "username":
+                    wrapper.orderBy(true, isAsc, User::getUsername);
+                    break;
+                case "email":
+                    wrapper.orderBy(true, isAsc, User::getEmail);
+                    break;
+                case "role":
+                    wrapper.orderBy(true, isAsc, User::getRole);
+                    break;
+                case "balance":
+                    wrapper.orderBy(true, isAsc, User::getBalance);
+                    break;
+                default:
+                    wrapper.orderBy(true, isAsc, User::getId);
+                    break;
+            }
+        } else {
+            wrapper.orderByDesc(User::getId);
+        }
+
+        IPage<User> userPage = userMapper.selectPage(page, wrapper);
+
+        return userPage.convert(UserProfileResponse::fromEntity);
     }
 }
