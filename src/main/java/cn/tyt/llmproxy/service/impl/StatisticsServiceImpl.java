@@ -8,13 +8,16 @@ import cn.tyt.llmproxy.entity.ModelDailyStat;
 import cn.tyt.llmproxy.mapper.ModelDailyStatMapper;
 import cn.tyt.llmproxy.repository.UsageLogRepository;
 import cn.tyt.llmproxy.service.IStatisticsService;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.domain.Sort;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -45,31 +48,25 @@ public class StatisticsServiceImpl implements IStatisticsService {
     }
 
 
+
     @Override
-    public List<ModelStatisticsDto> getModelUsage(StatisticsQueryDto queryDto) {
-        LambdaQueryWrapper<ModelDailyStat> queryWrapper = new LambdaQueryWrapper<>();
-
-        // 1. 处理 modelId
-        if (queryDto.getModelId() != null) {
-            queryWrapper.eq(ModelDailyStat::getModelId, queryDto.getModelId());
-        } else if(queryDto.getModelIdentifier() != null){
-            queryWrapper.eq(ModelDailyStat::getModelIdentifier, queryDto.getModelIdentifier());
-        }
-
-        // 2. 处理日期
-        LocalDate date = queryDto.getDate();
-
-        if (date == null) {
-            // 如果都为空，查询当天
-            queryWrapper.eq(ModelDailyStat::getStatDate, LocalDate.now());
-        } else{
-            queryWrapper.eq(ModelDailyStat::getStatDate, date);
-        }
-
-        // 排序，让结果更可读
-        queryWrapper.orderByAsc(ModelDailyStat::getModelId, ModelDailyStat::getStatDate);
+    public List<ModelStatisticsDto> listModelDailyStats(StatisticsQueryDto queryDto) {
+        StatisticsQueryDto safeDto = queryDto == null ? new StatisticsQueryDto() : queryDto;
+        LambdaQueryWrapper<ModelDailyStat> queryWrapper = buildModelUsageQueryWrapper(safeDto);
         List<ModelDailyStat> stats = modelDailyStatMapper.selectList(queryWrapper);
         return convertToDto(stats);
+    }
+
+    @Override
+    public IPage<ModelStatisticsDto> pageModelDailyStats(StatisticsQueryDto queryDto, int pageNum, int pageSize) {
+        StatisticsQueryDto safeDto = queryDto == null ? new StatisticsQueryDto() : queryDto;
+        LambdaQueryWrapper<ModelDailyStat> queryWrapper = buildModelUsageQueryWrapper(safeDto);
+
+        Page<ModelDailyStat> page = modelDailyStatMapper.selectPage(new Page<>(pageNum, pageSize), queryWrapper);
+        Page<ModelStatisticsDto> dtoPage = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
+        dtoPage.setPages(page.getPages());
+        dtoPage.setRecords(convertToDto(page.getRecords()));
+        return dtoPage;
     }
 
     public void recordUsageMongo(
@@ -170,6 +167,46 @@ public class StatisticsServiceImpl implements IStatisticsService {
         return mongoTemplate.find(query, UsageLogDocument.class);
     }
 
+    private LambdaQueryWrapper<ModelDailyStat> buildModelUsageQueryWrapper(StatisticsQueryDto queryDto) {
+        LambdaQueryWrapper<ModelDailyStat> queryWrapper = new LambdaQueryWrapper<>();
+
+        if (queryDto.getModelId() != null) {
+            queryWrapper.eq(ModelDailyStat::getModelId, queryDto.getModelId());
+        }
+        if (StringUtils.hasText(queryDto.getModelIdentifier())) {
+            queryWrapper.eq(ModelDailyStat::getModelIdentifier, queryDto.getModelIdentifier());
+        }
+
+        LocalDate startDate = queryDto.getStartDate();
+        LocalDate endDate = queryDto.getEndDate();
+        LocalDate singleDate = queryDto.getDate();
+
+        if (singleDate != null && startDate == null && endDate == null) {
+            startDate = singleDate;
+            endDate = singleDate;
+        }
+
+        if (startDate == null && endDate == null) {
+            startDate = LocalDate.now();
+            endDate = LocalDate.now();
+        }
+        if (startDate == null) {
+            startDate = endDate;
+        }
+        if (endDate == null) {
+            endDate = startDate;
+        }
+        if (endDate.isBefore(startDate)) {
+            LocalDate tmp = startDate;
+            startDate = endDate;
+            endDate = tmp;
+        }
+
+        queryWrapper.between(ModelDailyStat::getStatDate, startDate, endDate);
+
+        queryWrapper.orderByAsc(ModelDailyStat::getStatDate, ModelDailyStat::getModelId);
+        return queryWrapper;
+    }
 
     private List<ModelStatisticsDto> convertToDto(List<ModelDailyStat> stats) {
             return stats.stream().map(stat -> {

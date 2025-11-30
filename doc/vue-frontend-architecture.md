@@ -33,7 +33,7 @@ frontend/
 | `auth` | 登录、注册、修改密码、个人资料 | 与 `/v1/auth/*` 交互；登录页放在单独路由，登录后持久化 JWT、角色、用户名等信息 |
 | `access-keys` | Key 列表/创建/删除 | 使用 JWT 调 `/v1/access-keys`；创建成功后弹窗展示 `keyValue`，提醒用户妥善保存 |
 | `providers` | 供应商、Key 管理 | 支持 CRUD、分页（`pageNum/pageSize`），UI 包含表格、筛选抽屉、Key 管理对话框 |
-| `models` | 模型 CRUD、状态开关、统计 | 模型表格 + 可视化统计（对接 `/v1/models/usage`）；创建/编辑表单联动 Provider 信息 |
+| `models` | 模型 CRUD、状态开关、统计 | 模型表格 + 可视化统计（对接 `/v1/statistics/models`）；创建/编辑表单联动 Provider 信息 |
 | `orders` | 我的订单、运营订单、支付/取消 | 普通用户仅访问 `/my` 与 `/get`；ROOT 管理员可查看全部 |
 | `proxy` | 调用体验、SSE 调试、图像生成 | 前端封装 chat 请求、OpenAI 格式、图片上传；SSE 需单独组件展示 stream chunk |
 | `async` | 异步任务提交/查询 | 页面提供 `POST /v1/async/*` 示例表单和 `jobId` 轮询查询 |
@@ -111,5 +111,4 @@ frontend/
 6. **推理体验**：开发聊天、OpenAI 兼容、流式、图像 UI；封装 SSE hook、图片上传组件。
 7. **异步任务与统计**：实现任务轮询、日志查询、导出。
 8. **测试与优化**：使用 Cypress/Playwright 做关键流程回归；集成 eslint/prettier；设置 `.env.production` 指定后端域名。
-
 

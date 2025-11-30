@@ -13,7 +13,15 @@ public class StatisticsQueryDto {
     //要查询的模型名，可选
     private String modelIdentifier;
 
-    //查询日期 (格式: yyyy-MM-dd)，可选。
+    //单日查询日期 (格式: yyyy-MM-dd)，可选。若设置了 startDate/endDate，则忽略此字段
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     private LocalDate date;
+
+    //起始日期 (格式: yyyy-MM-dd)，可选
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+    private LocalDate startDate;
+
+    //结束日期 (格式: yyyy-MM-dd)，可选
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+    private LocalDate endDate;
 }

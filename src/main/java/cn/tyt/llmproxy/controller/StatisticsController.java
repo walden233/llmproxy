@@ -35,13 +35,14 @@ public class StatisticsController {
      * @param queryDto 查询参数 DTO
      * @return 模型统计数据列表
      */
-    @PostMapping
-    public Result<List<ModelStatisticsDto>> getModelStatistics(@Valid @RequestBody(required = false) StatisticsQueryDto queryDto) {
+    @PostMapping("/models")
+    public Result<List<ModelStatisticsDto>> getModelDailyStats(
+            @Valid @RequestBody(required = false) StatisticsQueryDto queryDto) {
         // 如果请求体为空，则创建一个新的DTO对象，以触发默认查询逻辑（例如查询当天）
         if (queryDto == null) {
             queryDto = new StatisticsQueryDto();
         }
-        List<ModelStatisticsDto> result = statisticsService.getModelUsage(queryDto);
+        List<ModelStatisticsDto> result = statisticsService.listModelDailyStats(queryDto);
         return Result.success(result);
     }
 
@@ -50,15 +51,15 @@ public class StatisticsController {
      * @param userId 用户ID
      * @return 用户的用量日志列表
      */
-    @GetMapping("/user/{userId}")
-    public Result<List<UsageLogDocument>> getLogsForUser(@PathVariable Integer userId) {
+    @GetMapping("/logs/user/{userId}")
+    public Result<List<UsageLogDocument>> getUserLogs(@PathVariable Integer userId) {
         List<UsageLogDocument> logs = statisticsService.getLogsForUser(userId);
         return Result.success(logs);
     }
 
-    @GetMapping("/mylog")
+    @GetMapping("/logs/me")
     @PreAuthorize("isAuthenticated()")
-    public Result<List<UsageLogDocument>> getLogsForCurrentUser() {
+    public Result<List<UsageLogDocument>> getMyLogs() {
         int userId = userService.getCurrentUser().getId();
         List<UsageLogDocument> logs = statisticsService.getLogsForUser(userId);
         return Result.success(logs);
@@ -69,8 +70,8 @@ public class StatisticsController {
      * @param modelId 模型ID
      * @return 模型的用量日志列表
      */
-    @GetMapping("/model/{modelId}")
-    public Result<List<UsageLogDocument>> getLogsForModel(@PathVariable Integer modelId) {
+    @GetMapping("/logs/model/{modelId}")
+    public Result<List<UsageLogDocument>> getModelLogs(@PathVariable Integer modelId) {
         List<UsageLogDocument> logs = statisticsService.getLogsForModel(modelId);
         return Result.success(logs);
     }

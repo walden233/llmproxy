@@ -1,8 +1,5 @@
 package cn.tyt.llmproxy.controller;
 
-import cn.tyt.llmproxy.dto.request.StatisticsQueryDto;
-import cn.tyt.llmproxy.dto.response.ModelStatisticsDto;
-import cn.tyt.llmproxy.service.IStatisticsService;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import cn.tyt.llmproxy.common.domain.Result;
 import cn.tyt.llmproxy.dto.request.ModelCreateRequest;
@@ -15,8 +12,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-        import java.util.List;
-
 @RestController
 @RequestMapping("/v1/models")
 @PreAuthorize("hasAnyAuthority('ROLE_ROOT_ADMIN','ROLE_MODEL_ADMIN')")
@@ -24,8 +19,6 @@ public class ModelController {
 
     @Autowired
     private ILlmModelService modelService;
-    @Autowired
-    private IStatisticsService statisticsService;
 
     @PostMapping
     public Result<ModelResponse> createModel(@Valid @RequestBody ModelCreateRequest request) {
@@ -66,16 +59,5 @@ public class ModelController {
     public Result<?> deleteModel(@PathVariable Integer id) {
         modelService.deleteModel(id);
         return Result.success("模型删除成功",null);
-    }
-
-    @PostMapping("/usage")
-    //根据可选参数（模型ID、开始日期、结束日期）查询统计数据。如果所有参数都为空，则默认查询当天所有模型的统计。
-    public Result<List<ModelStatisticsDto>> getModelStatistics(@Valid @RequestBody(required = false) StatisticsQueryDto queryDto) {
-        // 如果请求体为空，则创建一个新的DTO对象，默认查询当天用量
-        if (queryDto == null) {
-            queryDto = new StatisticsQueryDto();
-        }
-        List<ModelStatisticsDto> result = statisticsService.getModelUsage(queryDto);
-        return Result.success(result);
     }
 }
