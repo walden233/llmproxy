@@ -1,6 +1,6 @@
 package cn.tyt.llmproxy.service.impl;
 
-import cn.tyt.llmproxy.dto.UsageLogDocument;
+import cn.tyt.llmproxy.document.UsageLogDocument;
 import cn.tyt.llmproxy.dto.request.StatisticsQueryDto;
 import cn.tyt.llmproxy.dto.request.UsageLogQueryDto;
 import cn.tyt.llmproxy.dto.response.ModelStatisticsDto;

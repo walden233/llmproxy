@@ -28,4 +28,14 @@ public class ChatRequest_dto {
 
     // 支持图片输入
     private List<ImageInput> images;
+
+    /**
+     * 是否让后端落地并拼接历史记录（默认 false，向后兼容旧调用）。
+     */
+    private Boolean persistHistory = false;
+
+    /**
+     * 可选：继续指定会话ID；若为空且 persistHistory=true，会自动创建。
+     */
+    private String conversationId;
 }

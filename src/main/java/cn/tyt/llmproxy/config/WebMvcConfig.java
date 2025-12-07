@@ -17,6 +17,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
         // 注册AccessKey拦截器
         registry.addInterceptor(accessKeyInterceptor)
                 // 指定该拦截器只对这两个路径生效
-                .addPathPatterns("/v1/chat", "/v1/generate-image","/v1/async/chat","/v1/async/generate-image","/v2/chat","/v2/chat/stream");
+                .addPathPatterns("/v1/chat", "/v1/generate-image","/v1/async/chat","/v1/async/generate-image","/v2/chat","/v2/chat/stream",
+                        "/v1/conversations/**");
     }
 }

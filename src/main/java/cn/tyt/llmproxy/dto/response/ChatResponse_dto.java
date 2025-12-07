@@ -12,4 +12,6 @@ public class ChatResponse_dto {
     private String usedModelIdentifier; // 实际使用的模型标识
     private Integer inputTokensCount;
     private Integer outputTokensCount;
+    private String conversationId;
+    private String messageId;
 }

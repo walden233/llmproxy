@@ -1,4 +1,4 @@
-package cn.tyt.llmproxy.service;
+package cn.tyt.llmproxy.repository;
 
 import cn.tyt.llmproxy.entity.AccessKey;
 import cn.tyt.llmproxy.mapper.AccessKeyMapper;

@@ -115,3 +115,23 @@ CREATE TABLE `model_daily_stats` (
                                      `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                                      UNIQUE KEY `uk_model_date` (`model_id`, `stat_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='模型每日用量统计表';
+
+-- 9. 用户会话元数据表（用于最近会话列表）
+CREATE TABLE `conversation_sessions` (
+                                         `id` BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
+                                         `conversation_id` VARCHAR(64) NOT NULL COMMENT '对外暴露的会话ID',
+                                         `user_id` INT NOT NULL COMMENT '所属用户ID',
+                                         `access_key_id` INT DEFAULT NULL COMMENT '最近一次使用的AccessKey ID',
+                                         `title` VARCHAR(255) DEFAULT NULL COMMENT '会话标题，可空',
+                                         `pinned` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否置顶: 0-否, 1-是',
+                                         `last_model_identifier` VARCHAR(100) DEFAULT NULL COMMENT '最近一次使用的模型标识',
+                                         `last_message_summary` VARCHAR(500) DEFAULT NULL COMMENT '最近一条消息摘要，便于列表展示',
+                                         `message_count` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '累计消息条数（用户+助手）',
+                                         `last_active_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '最近活跃时间，用于排序',
+                                         `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                         `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                                         `deleted` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '软删除标记: 0-正常, 1-删除',
+                                         UNIQUE KEY `uk_conversation_id` (`conversation_id`),
+                                         KEY `idx_user_last_active` (`user_id`, `last_active_at`),
+                                         KEY `idx_access_key` (`access_key_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户会话元数据表';

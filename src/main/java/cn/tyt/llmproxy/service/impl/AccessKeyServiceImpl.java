@@ -5,14 +5,13 @@ import cn.tyt.llmproxy.entity.AccessKey;
 import cn.tyt.llmproxy.entity.User;
 import cn.tyt.llmproxy.mapper.AccessKeyMapper;
 import cn.tyt.llmproxy.mapper.UserMapper;
-import cn.tyt.llmproxy.service.AccessKeyRepository;
+import cn.tyt.llmproxy.repository.AccessKeyRepository;
 import cn.tyt.llmproxy.service.IAccessKeyService;
 import cn.tyt.llmproxy.service.IUserService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

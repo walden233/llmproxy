@@ -56,6 +56,12 @@ public class OpenAiChatRequest {
 
     private Map<String, Object> metadata;
 
+    @JsonProperty("conversation_id")
+    private String conversationId;
+
+    @JsonProperty("persist_history")
+    private Boolean persistHistory;
+
     /**
      * Allows vendor specific overrides without polluting the schema.
      */

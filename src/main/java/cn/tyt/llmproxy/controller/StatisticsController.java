@@ -4,7 +4,7 @@ import cn.tyt.llmproxy.common.domain.Result;
 import cn.tyt.llmproxy.dto.request.StatisticsQueryDto;
 import cn.tyt.llmproxy.dto.request.UsageLogQueryDto;
 import cn.tyt.llmproxy.dto.response.ModelStatisticsDto;
-import cn.tyt.llmproxy.dto.UsageLogDocument;
+import cn.tyt.llmproxy.document.UsageLogDocument;
 import cn.tyt.llmproxy.service.IStatisticsService;
 import cn.tyt.llmproxy.service.IUserService;
 import io.swagger.v3.oas.annotations.tags.Tag;

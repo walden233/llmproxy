@@ -1,4 +1,4 @@
-package cn.tyt.llmproxy.dto;
+package cn.tyt.llmproxy.document;
 
 import lombok.Data;
 import org.springframework.data.annotation.Id;

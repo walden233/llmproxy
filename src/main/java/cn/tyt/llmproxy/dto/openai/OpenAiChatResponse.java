@@ -28,6 +28,9 @@ public class OpenAiChatResponse {
     @JsonProperty("system_fingerprint")
     private String systemFingerprint;
 
+    @JsonProperty("conversation_id")
+    private String conversationId;
+
     @Data
     @Builder
     @NoArgsConstructor

@@ -1,6 +1,6 @@
 package cn.tyt.llmproxy.repository;
 
-import cn.tyt.llmproxy.dto.UsageLogDocument;
+import cn.tyt.llmproxy.document.UsageLogDocument;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
 
