@@ -143,7 +143,7 @@ public class ConversationServiceImpl implements IConversationService {
         String assistantMessageId = null;
 
         if (StringUtils.hasText(userContent) || !CollectionUtils.isEmpty(userImageUrls)) {
-            ConversationMessageDocument userDoc = buildMessageDoc(session.getConversationId(), userId, "user", userContent, userImageUrls, modelIdentifier, null, null, null, now.minusNanos(1));
+            ConversationMessageDocument userDoc = buildMessageDoc(session.getConversationId(), userId, "user", userContent, userImageUrls, modelIdentifier, null, null, null, now.minusNanos(1000000));
             conversationMessageRepository.save(userDoc);
             savedCount++;
         }

@@ -307,12 +307,13 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
         statisticsService.recordUsageMongo(userId,accessKeyId,modelConfig.getId(),inputTokensCount,outputTokensCount,null,cost.negate(), LocalDateTime.now(),true,isAsync);
         String assistantContent = response.aiMessage().text();
         if (persistHistory) {
+            List<String> userImageUrls = extractUserImageUrls(request);
             IConversationService.ConversationAppendResult appendResult = conversationService.appendChatMessages(
                     conversationId,
                     userId,
                     accessKeyId,
                     extractLastUserMessage(request),
-                    Collections.emptyList(),
+                    userImageUrls,
                     assistantContent,
                     modelConfig.getModelIdentifier(),
                     inputTokensCount,
@@ -393,12 +394,13 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
                             statisticsService.recordUsageMongo(userId, accessKeyId, modelConfig.getId(), inputTokensCount, outputTokensCount, null, cost.negate(), LocalDateTime.now(), true, isAsync);
 
                             if (persistHistory) {
+                                List<String> userImageUrls = extractUserImageUrls(request);
                                 IConversationService.ConversationAppendResult appendResult = conversationService.appendChatMessages(
                                         conversationId[0],
                                         userId,
                                         accessKeyId,
                                         extractLastUserMessage(request),
-                                        Collections.emptyList(),
+                                        userImageUrls,
                                         assistantBuilder.toString(),
                                         modelConfig.getModelIdentifier(),
                                         inputTokensCount,
@@ -667,6 +669,30 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
                 .map(OpenAiMessageContent::getText)
                 .filter(StringUtils::hasText)
                 .collect(Collectors.joining("\n"));
+    }
+
+    private List<String> extractUserImageUrls(OpenAiChatRequest request) {
+        if (request.getMessages() == null || request.getMessages().isEmpty()) {
+            return Collections.emptyList();
+        }
+        for (int i = request.getMessages().size() - 1; i >= 0; i--) {
+            OpenAiMessage message = request.getMessages().get(i);
+            if (message == null || !"user".equalsIgnoreCase(message.getRole())) {
+                continue;
+            }
+            if (message.getContents() == null) {
+                continue;
+            }
+            return message.getContents().stream()
+                    .filter(Objects::nonNull)
+                    .filter(c -> "image_url".equalsIgnoreCase(c.getType()))
+                    .map(OpenAiMessageContent::getImageUrl)
+                    .filter(Objects::nonNull)
+                    .map(img -> StringUtils.hasText(img.getUrl()) ? img.getUrl() : img.getBase64Json())
+                    .filter(StringUtils::hasText)
+                    .collect(Collectors.toList());
+        }
+        return Collections.emptyList();
     }
 
     private List<ChatMessage> convertOpenAiMessages(OpenAiChatRequest request) {
