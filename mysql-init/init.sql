@@ -76,6 +76,26 @@ CREATE TABLE `usage_logs` (
                               `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '记录创建时间'
 ) ENGINE=InnoDB COMMENT='用量与计费日志表';
 
+-- 6.1 计费流水表
+CREATE TABLE `billing_ledger` (
+                                  `id` BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
+                                  `request_id` VARCHAR(128) NOT NULL COMMENT '幂等请求ID',
+                                  `user_id` INT NOT NULL COMMENT '用户ID',
+                                  `access_key_id` INT DEFAULT NULL COMMENT 'Access Key ID',
+                                  `model_id` INT DEFAULT NULL COMMENT '模型ID',
+                                  `prompt_tokens` INT UNSIGNED DEFAULT NULL COMMENT '输入Token数',
+                                  `completion_tokens` INT UNSIGNED DEFAULT NULL COMMENT '输出Token数',
+                                  `image_count` INT UNSIGNED DEFAULT NULL COMMENT '生成图片数',
+                                  `amount` DECIMAL(10, 6) NOT NULL COMMENT '扣费/充值金额，正为充值，负为扣费',
+                                  `status` VARCHAR(32) NOT NULL COMMENT '状态: INIT/SETTLED',
+                                  `biz_type` VARCHAR(32) NOT NULL COMMENT '业务类型: CHAT/IMAGE/TOPUP',
+                                  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                                  UNIQUE KEY `uk_request_id` (`request_id`),
+                                  KEY `idx_user_id` (`user_id`),
+                                  KEY `idx_access_key_id` (`access_key_id`)
+) ENGINE=InnoDB COMMENT='计费流水表';
+
 -- 7. 订单表
 CREATE TABLE `orders` (
                           `id` INT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
@@ -102,6 +122,22 @@ CREATE TABLE `async_jobs` (
                               `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                               `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
 ) ENGINE=InnoDB COMMENT='异步任务表';
+
+-- 8.1 异步任务 Outbox 表
+CREATE TABLE `async_task_outbox` (
+                                     `id` BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
+                                     `job_id` VARCHAR(64) NOT NULL COMMENT '任务ID',
+                                     `exchange` VARCHAR(128) NOT NULL COMMENT '交换机',
+                                     `routing_key` VARCHAR(128) NOT NULL COMMENT '路由键',
+                                     `payload` TEXT NOT NULL COMMENT '消息体JSON',
+                                     `status` VARCHAR(32) NOT NULL COMMENT '状态: PENDING/SENT/FAILED',
+                                     `retry_count` INT NOT NULL DEFAULT 0 COMMENT '重试次数',
+                                     `next_retry_at` DATETIME NOT NULL COMMENT '下次重试时间',
+                                     `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                     `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                                     KEY `idx_job_id` (`job_id`),
+                                     KEY `idx_status_retry` (`status`, `next_retry_at`)
+) ENGINE=InnoDB COMMENT='异步任务 Outbox 表';
 
 CREATE TABLE `model_daily_stats` (
                                      `id` BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',

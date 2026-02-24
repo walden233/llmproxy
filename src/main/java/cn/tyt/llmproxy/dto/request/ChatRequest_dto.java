@@ -8,6 +8,9 @@ import java.util.Map;
 @Data
 public class ChatRequest_dto {
 
+    // 幂等请求ID（可选，建议由调用方传入）
+    private String requestId;
+
     private String userMessage;
 
     // 可选：指定使用哪个模型 (数据库中的模型ID或标识符)

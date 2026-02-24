@@ -170,16 +170,10 @@ public class UserServiceImpl implements IUserService {
 
     @Override
     public void creditUserBalance(Integer userId, BigDecimal amount) {
-        User user = userMapper.selectById(userId);
-        if (user == null) {
-            // 使用自定义的业务异常更佳
-            throw new BusinessException(ResultCode.DATA_NOT_FOUND, "User not found with id: " + userId);
+        int updated = userMapper.updateBalance(userId, amount);
+        if (updated == 0) {
+            throw new BusinessException(ResultCode.OPERATION_FAILED, "Failed to update balance due to concurrency conflict.");
         }
-        user.setBalance(user.getBalance().add(amount));
-        int updatedRows = userMapper.updateById(user);
-        //乐观锁
-        if (updatedRows == 0)
-            throw new BusinessException(ResultCode.OPERATION_FAILED, "Failed to credit user balance due to concurrency conflict.");
     }
     @Override
     public User getCurrentUser() {

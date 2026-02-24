@@ -18,6 +18,7 @@ import cn.tyt.llmproxy.dto.openai.OpenAiToolCall;
 import cn.tyt.llmproxy.entity.LlmModel;
 import cn.tyt.llmproxy.entity.Provider;
 import cn.tyt.llmproxy.entity.ProviderKey;
+import cn.tyt.llmproxy.entity.BillingLedger;
 import cn.tyt.llmproxy.image.ImageGeneratorFactory;
 import cn.tyt.llmproxy.image.ImageGeneratorService;
 import cn.tyt.llmproxy.dto.request.ChatRequest_dto;
@@ -94,9 +95,9 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
     @Autowired
     private KeySelectionService keySelectionService; // 注入新服务
     @Autowired
-    private IUserService userService;
+    private IBillingService billingService;
     @Autowired
-    private IStatisticsService statisticsService;
+    private IUsageLogProducerService usageLogProducerService;
     @Autowired
     private IProviderService providerService;
     @Autowired
@@ -112,6 +113,7 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
         if(request.getImages()==null && request.getUserMessage()==null){
             throw new IllegalArgumentException("请求中必须包含图片或用户消息");
         }
+        String requestId = resolveRequestId(request.getRequestId(), accessKeyId, "chat", null);
         boolean persistHistory = Boolean.TRUE.equals(request.getPersistHistory());
         String conversationId = request.getConversationId();
 
@@ -191,12 +193,14 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
             throw new BusinessException(ResultCode.MODEL_INFERENCE_ERROR, "模型未能生成响应。");
         }
         BigDecimal cost = calculateChatPrice(response,modelConfig);
-        //使用工作队列处理扣费和记录？
-        userService.creditUserBalance(userId,cost);
+        billingService.charge(requestId, userId, accessKeyId, modelConfig.getId(),
+                response.metadata().tokenUsage().inputTokenCount(),
+                response.metadata().tokenUsage().outputTokenCount(),
+                null, cost, BillingLedger.BIZ_CHAT);
 
         int inputTokensCount = response.metadata().tokenUsage().inputTokenCount();
         int outputTokensCount = response.metadata().tokenUsage().outputTokenCount();
-        statisticsService.recordUsageMongo(userId,accessKeyId,modelConfig.getId(),inputTokensCount,outputTokensCount,null,cost.negate(), LocalDateTime.now(),true,isAsync);
+        sendUsageLog(userId, accessKeyId, modelConfig.getId(), inputTokensCount, outputTokensCount, null, cost.negate(), true, isAsync);
         String assistantContent = response.aiMessage().text();
         String messageId = null;
         if (persistHistory) {
@@ -226,6 +230,7 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
     @Override
     public OpenAiChatResponse chatV2(OpenAiChatRequest request, Integer userId, Integer accessKeyId, Boolean isAsync) {
         validateOpenAiRequest(request, false);
+        String requestId = resolveRequestId(request.getRequestId(), accessKeyId, "chatv2", null);
         boolean persistHistory = Boolean.TRUE.equals(request.getPersistHistory());
         String conversationId = request.getConversationId();
         boolean containsImageInput = containsImageInputs(request);
@@ -252,12 +257,12 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
             throw new BusinessException(ResultCode.MODEL_INFERENCE_ERROR, "模型未能生成响应。");
         }
         BigDecimal cost = calculateChatPrice(response,modelConfig);
-        userService.creditUserBalance(userId,cost);
-
         TokenUsage usage = response.metadata() != null ? response.metadata().tokenUsage() : response.tokenUsage();
         Integer inputTokensCount = usage != null ? usage.inputTokenCount() : null;
         Integer outputTokensCount = usage != null ? usage.outputTokenCount() : null;
-        statisticsService.recordUsageMongo(userId,accessKeyId,modelConfig.getId(),inputTokensCount,outputTokensCount,null,cost.negate(), LocalDateTime.now(),true,isAsync);
+        billingService.charge(requestId, userId, accessKeyId, modelConfig.getId(),
+                inputTokensCount, outputTokensCount, null, cost, BillingLedger.BIZ_CHAT);
+        sendUsageLog(userId, accessKeyId, modelConfig.getId(), inputTokensCount, outputTokensCount, null, cost.negate(), true, isAsync);
         String assistantContent = response.aiMessage().text();
         if (persistHistory) {
             List<String> userImageUrls = extractUserImageUrls(request);
@@ -283,6 +288,7 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
     @Override
     public SseEmitter chatV2Stream(OpenAiChatRequest request, Integer userId, Integer accessKeyId, Boolean isAsync) {
         validateOpenAiRequest(request, true);
+        String requestId = resolveRequestId(request.getRequestId(), accessKeyId, "chatv2stream", null);
         SseEmitter emitter = new SseEmitter(0L);
         CompletableFuture.runAsync(() -> {
             try {
@@ -308,8 +314,9 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
                 final String streamId = "chatcmpl-" + UUID.randomUUID();
                 final long created = Instant.now().getEpochSecond();
                 AtomicBoolean roleSignaled = new AtomicBoolean(false);
+                AtomicBoolean clientDisconnected = new AtomicBoolean(false);
                 StringBuilder assistantBuilder = new StringBuilder();
-                sendInitialStreamChunk(emitter, streamId, created, modelConfig.getModelIdentifier(), roleSignaled);
+                sendInitialStreamChunk(emitter, streamId, created, modelConfig.getModelIdentifier(), roleSignaled, clientDisconnected);
                 StreamingChatResponseHandler handler = new StreamingChatResponseHandler() {
                     @Override
                     public void onPartialResponse(String partialResponse) {
@@ -319,7 +326,7 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
                         assistantBuilder.append(partialResponse);
                         Map<String, Object> payload = buildStreamChunk(streamId, created, modelConfig.getModelIdentifier(), partialResponse, roleSignaled.compareAndSet(false, true));
                         if (payload != null) {
-                            sendStreamData(emitter, payload);
+                            trySendStreamData(emitter, payload, clientDisconnected);
                         }
                     }
 
@@ -327,11 +334,12 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
                     public void onCompleteResponse(ChatResponse response) {
                         try {
                             BigDecimal cost = calculateChatPrice(response, modelConfig);
-                            userService.creditUserBalance(userId, cost);
                             TokenUsage usage = response.metadata() != null ? response.metadata().tokenUsage() : response.tokenUsage();
                             Integer inputTokensCount = usage != null ? usage.inputTokenCount() : null;
                             Integer outputTokensCount = usage != null ? usage.outputTokenCount() : null;
-                            statisticsService.recordUsageMongo(userId, accessKeyId, modelConfig.getId(), inputTokensCount, outputTokensCount, null, cost.negate(), LocalDateTime.now(), true, isAsync);
+                            billingService.charge(requestId, userId, accessKeyId, modelConfig.getId(),
+                                    inputTokensCount, outputTokensCount, null, cost, BillingLedger.BIZ_CHAT);
+                            sendUsageLog(userId, accessKeyId, modelConfig.getId(), inputTokensCount, outputTokensCount, null, cost.negate(), true, isAsync);
 
                             if (persistHistory) {
                                 List<String> userImageUrls = extractUserImageUrls(request);
@@ -357,10 +365,12 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
                                 finalChunk.put("conversation_id", conversationId[0]);
                             }
                             if (finalChunk != null) {
-                                sendStreamData(emitter, finalChunk);
+                                trySendStreamData(emitter, finalChunk, clientDisconnected);
                             }
-                            sendStreamDone(emitter);
-                            emitter.complete();
+                            if (!clientDisconnected.get()) {
+                                sendStreamDone(emitter);
+                                emitter.complete();
+                            }
                         } catch (Exception e) {
                             handleStreamError(emitter, e);
                         }
@@ -412,6 +422,7 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
         String requiredCapability = (request.getOriginImage() != null)
                 ? ModelCapabilityEnum.IMAGE_TO_IMAGE.getValue()
                 : ModelCapabilityEnum.TEXT_TO_IMAGE.getValue();
+        String requestId = resolveRequestId(request.getRequestId(), accessKeyId, "image", null);
         LlmModel selectedModel = selectModel(request.getModelInternalId(), request.getModelIdentifier(), requiredCapability);
         LlmModelConfigDto modelConfig = buildModelConfig(selectedModel);
         log.info("使用模型生成图像: {} (ID: {})", modelConfig.getDisplayName(), modelConfig.getModelIdentifier());
@@ -423,15 +434,42 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
         else
             result = generator.editImage(request);
         BigDecimal cost = calculateImagePrice(result,modelConfig);
-        userService.creditUserBalance(userId,cost);
-        statisticsService.recordUsageMongo(userId,accessKeyId,modelConfig.getId(),null,null,result.getImageUrls().size(),cost.negate(), LocalDateTime.now(),true,isAsync);
+        billingService.charge(requestId, userId, accessKeyId, modelConfig.getId(),
+                null, null, result.getImageUrls().size(), cost, BillingLedger.BIZ_IMAGE);
+        sendUsageLog(userId, accessKeyId, modelConfig.getId(), null, null, result.getImageUrls().size(), cost.negate(), true, isAsync);
         return result;
+    }
+
+    private void sendUsageLog(Integer userId, Integer accessKeyId, Integer modelId,
+                              Integer promptTokens, Integer completionTokens, Integer imageCount,
+                              BigDecimal cost, boolean isSuccess, Boolean isAsync) {
+        cn.tyt.llmproxy.dto.request.UsageLogMessage message = new cn.tyt.llmproxy.dto.request.UsageLogMessage();
+        message.setUserId(userId);
+        message.setAccessKeyId(accessKeyId);
+        message.setModelId(modelId);
+        message.setPromptTokens(promptTokens);
+        message.setCompletionTokens(completionTokens);
+        message.setImageCount(imageCount);
+        message.setCost(cost);
+        message.setTime(LocalDateTime.now());
+        message.setSuccess(isSuccess);
+        message.setIsAsync(isAsync);
+        usageLogProducerService.sendUsageLog(message);
     }
     private BigDecimal calculateImagePrice(ImageGenerationResponse response,LlmModelConfigDto modelConfig){
         int imgCount = response.getImageUrls().size();
         Map<String,Object> pricing = modelConfig.getPricing();
         BigDecimal imgPrice = new BigDecimal(pricing.get("output").toString());
         return imgPrice.multiply(new BigDecimal(imgCount)).negate();
+    }
+
+    private String resolveRequestId(String provided, Integer accessKeyId, String action, String suffix) {
+        if (StringUtils.hasText(provided)) {
+            return provided;
+        }
+        String base = StringUtils.hasText(suffix) ? suffix : UUID.randomUUID().toString().replace("-", "");
+        String accessPart = accessKeyId == null ? "na" : accessKeyId.toString();
+        return action + "-" + accessPart + "-" + base;
     }
 
     private String ensureConversationIfNeeded(boolean persistHistory, String conversationId, Integer userId, Integer accessKeyId, String seedMessage) {
@@ -1175,10 +1213,11 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
         return "chatcmpl-" + UUID.randomUUID();
     }
 
-    private void sendInitialStreamChunk(SseEmitter emitter, String streamId, long created, String modelName, AtomicBoolean roleSignaled) {
+    private void sendInitialStreamChunk(SseEmitter emitter, String streamId, long created, String modelName,
+                                        AtomicBoolean roleSignaled, AtomicBoolean clientDisconnected) {
         Map<String, Object> payload = buildStreamChunk(streamId, created, modelName, null, true);
         if (payload != null) {
-            sendStreamData(emitter, payload);
+            trySendStreamData(emitter, payload, clientDisconnected);
             roleSignaled.set(true);
         }
     }
@@ -1235,6 +1274,14 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
         } catch (IOException e) {
             emitter.completeWithError(e);
             throw new RuntimeException("发送SSE数据失败", e);
+        }
+    }
+
+    private void trySendStreamData(SseEmitter emitter, Object payload, AtomicBoolean clientDisconnected) {
+        try {
+            sendStreamData(emitter, payload);
+        } catch (RuntimeException ex) {
+            clientDisconnected.set(true);
         }
     }
 

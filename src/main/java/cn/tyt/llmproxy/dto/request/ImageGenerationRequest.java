@@ -11,6 +11,9 @@ public class ImageGenerationRequest {
     @NotBlank(message = "图像描述不能为空")
     private String prompt;
 
+    // 幂等请求ID（可选，建议由调用方传入）
+    private String requestId;
+
     // 可选：指定使用哪个文生图模型
     private Integer modelInternalId;
     private String modelIdentifier;

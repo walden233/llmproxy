@@ -34,13 +34,23 @@ public class AsyncTaskConsumerServiceImpl implements IAsyncTaskConsumerService {
     @Override
     public void processChatTask(String jobId, Integer userId, Integer accessKeyId, Map<String, Object> requestPayload) {
         try {
+            AsyncJob existing = asyncJobService.getJobStatus(jobId);
+            if (existing == null) {
+                log.warn("Async chat task not found for jobId: {}", jobId);
+                return;
+            }
+            if (AsyncJob.STATUS_COMPLETED.equals(existing.getStatus()) || AsyncJob.STATUS_FAILED.equals(existing.getStatus())) {
+                log.info("Async chat task already finished (status={}) for jobId: {}", existing.getStatus(), jobId);
+                return;
+            }
             // 更新任务状态为处理中
             asyncJobService.updateJobStatus(jobId, AsyncJob.STATUS_PROCESSING,null, null, null);
             
             // 转换请求数据
             ChatRequest_dto chatRequest = objectMapper.convertValue(requestPayload, ChatRequest_dto.class);
             
-            // 调用实际的聊天服务
+            // 调用实际的聊天服务（使用 jobId 作为幂等 requestId）
+            chatRequest.setRequestId(jobId);
             ChatResponse_dto response = langchainProxyService.chat(chatRequest, userId, accessKeyId,true);
             String modelName = response.getUsedModelIdentifier();
             
@@ -59,13 +69,23 @@ public class AsyncTaskConsumerServiceImpl implements IAsyncTaskConsumerService {
     @Override
     public void processImageTask(String jobId, Integer userId, Integer accessKeyId, Map<String, Object> requestPayload) {
         try {
+            AsyncJob existing = asyncJobService.getJobStatus(jobId);
+            if (existing == null) {
+                log.warn("Async image task not found for jobId: {}", jobId);
+                return;
+            }
+            if (AsyncJob.STATUS_COMPLETED.equals(existing.getStatus()) || AsyncJob.STATUS_FAILED.equals(existing.getStatus())) {
+                log.info("Async image task already finished (status={}) for jobId: {}", existing.getStatus(), jobId);
+                return;
+            }
             // 更新任务状态为处理中
             asyncJobService.updateJobStatus(jobId, AsyncJob.STATUS_PROCESSING,null, null, null);
             
             // 转换请求数据
             ImageGenerationRequest imageRequest = objectMapper.convertValue(requestPayload, ImageGenerationRequest.class);
             
-            // 调用实际的图片生成服务
+            // 调用实际的图片生成服务（使用 jobId 作为幂等 requestId）
+            imageRequest.setRequestId(jobId);
             ImageGenerationResponse response = langchainProxyService.generateImage(imageRequest, userId, accessKeyId,true);
             String modelName = response.getUsedModelIdentifier();
             

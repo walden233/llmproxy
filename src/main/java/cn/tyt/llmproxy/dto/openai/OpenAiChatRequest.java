@@ -17,6 +17,12 @@ import java.util.Map;
 public class OpenAiChatRequest {
 
     /**
+     * Optional idempotency key for billing.
+     */
+    @JsonProperty("request_id")
+    private String requestId;
+
+    /**
      * Aligns to OpenAI's model field; mapped to LlmModel.modelIdentifier.
      */
     @NotBlank

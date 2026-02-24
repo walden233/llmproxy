@@ -9,6 +9,7 @@ import cn.tyt.llmproxy.entity.Order;
 import cn.tyt.llmproxy.entity.User;
 import cn.tyt.llmproxy.mapper.OrderMapper;
 import cn.tyt.llmproxy.security.Roles;
+import cn.tyt.llmproxy.service.IBillingService;
 import cn.tyt.llmproxy.service.IOrderService;
 import cn.tyt.llmproxy.service.IUserService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -34,6 +35,8 @@ public class OrderServiceImpl implements IOrderService {
     private OrderMapper orderMapper;
     @Autowired
     private IUserService userService; // 注入用户服务
+    @Autowired
+    private IBillingService billingService;
     @Autowired
     private RabbitTemplate rabbitTemplate; // 注入RabbitTemplate
 
@@ -118,9 +121,8 @@ public class OrderServiceImpl implements IOrderService {
         // 4. 调用用户服务增加余额 (关注点分离)
         // 传入订单金额和用户ID
         try {
-            userService.creditUserBalance(order.getUserId(), order.getAmount());
+            billingService.creditTopup(orderNo, order.getUserId(), order.getAmount());
         } catch (Exception e) {
-            // 如果用户服务失败，也需要抛出异常，让整个事务回滚
             throw new BusinessException(ResultCode.BUSINESS_ERROR, "Failed to credit user balance for order: " + orderNo, e);
         }
 

@@ -2,7 +2,9 @@ package cn.tyt.llmproxy.service.impl;
 
 import cn.tyt.llmproxy.entity.AsyncJob;
 import cn.tyt.llmproxy.service.IAsyncTaskProducerService;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import cn.tyt.llmproxy.service.IAsyncTaskOutboxService;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -13,7 +15,9 @@ import java.util.Map;
 public class AsyncTaskProducerServiceImpl implements IAsyncTaskProducerService {
 
     @Autowired
-    private RabbitTemplate rabbitTemplate;
+    private IAsyncTaskOutboxService asyncTaskOutboxService;
+    @Autowired
+    private ObjectMapper objectMapper;
     
     // RabbitMQ 配置常量
     public static final String ASYNC_TASK_EXCHANGE = "async.task.exchange";
@@ -29,8 +33,8 @@ public class AsyncTaskProducerServiceImpl implements IAsyncTaskProducerService {
         message.put("userId", job.getUserId());
         message.put("accessKeyId", job.getAccessKeyId());
         message.put("requestPayload", chatRequest);
-        
-        rabbitTemplate.convertAndSend(ASYNC_TASK_EXCHANGE, ASYNC_CHAT_ROUTING_KEY, message);
+
+        enqueueOutbox(job.getJobId(), ASYNC_TASK_EXCHANGE, ASYNC_CHAT_ROUTING_KEY, message);
     }
 
     @Override
@@ -40,7 +44,16 @@ public class AsyncTaskProducerServiceImpl implements IAsyncTaskProducerService {
         message.put("userId", job.getUserId());
         message.put("accessKeyId", job.getAccessKeyId());
         message.put("requestPayload", imageRequest);
-        
-        rabbitTemplate.convertAndSend(ASYNC_TASK_EXCHANGE, ASYNC_IMAGE_ROUTING_KEY, message);
+
+        enqueueOutbox(job.getJobId(), ASYNC_TASK_EXCHANGE, ASYNC_IMAGE_ROUTING_KEY, message);
+    }
+
+    private void enqueueOutbox(String jobId, String exchange, String routingKey, Map<String, Object> message) {
+        try {
+            String payload = objectMapper.writeValueAsString(message);
+            asyncTaskOutboxService.enqueue(jobId, exchange, routingKey, payload);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Failed to serialize async task message", e);
+        }
     }
 }
