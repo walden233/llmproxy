@@ -17,6 +17,7 @@ import java.time.LocalDateTime;
 @Component
 @Slf4j
 @RequiredArgsConstructor
+//用于在Mysql记录用量、在mongodb记录失败日志，成功日志在chat等方法中分别记录。
 public class StatisticsAspect {
 
     private final IStatisticsService statisticsService;

@@ -177,6 +177,7 @@ public class UserServiceImpl implements IUserService {
         }
         user.setBalance(user.getBalance().add(amount));
         int updatedRows = userMapper.updateById(user);
+        //乐观锁
         if (updatedRows == 0)
             throw new BusinessException(ResultCode.OPERATION_FAILED, "Failed to credit user balance due to concurrency conflict.");
     }

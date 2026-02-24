@@ -79,7 +79,6 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Collectors;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -127,24 +126,11 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
         OpenAiChatModel chatModel = buildChatLanguageModel(modelConfig, request.getOptions());
         List<ChatMessage> messages = new ArrayList<>();
 
-        if (persistHistory && !StringUtils.hasText(conversationId)) {
-            conversationId = conversationService.ensureConversation(userId, accessKeyId, null, request.getUserMessage()).getConversationId();
-        } else if (persistHistory) {
-            conversationService.ensureConversation(userId, accessKeyId, conversationId, request.getUserMessage());
-        }
+        conversationId = ensureConversationIfNeeded(persistHistory, conversationId, userId, accessKeyId, request.getUserMessage());
 
         // 将最近的持久化消息拼接为上下文（仅在未显式传历史时使用）
         if (persistHistory && (request.getHistory() == null || request.getHistory().isEmpty())) {
-            List<ConversationMessageDto> tailMessages = conversationService.getRecentTail(conversationId, userId, 10).messages();
-            for (ConversationMessageDto msg : tailMessages) {
-                if ("user".equals(msg.getRole())) {
-                    messages.add(UserMessage.from(msg.getContent()));
-                } else if ("assistant".equals(msg.getRole())) {
-                    messages.add(AiMessage.from(msg.getContent()));
-                } else if ("system".equals(msg.getRole())) {
-                    messages.add(SystemMessage.from(msg.getContent()));
-                }
-            }
+            appendTailMessages(messages, conversationId, userId);
         }
         // 添加系统消息 (如果需要)
         // messages.add(SystemMessage.from("You are a helpful assistant."));
@@ -198,27 +184,7 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
         }
         messages.add(currentUserMessage);
 
-        // 从 DTO 中提取
-        Map<String, Object> options = request.getOptions();
-        ChatRequest.Builder builder= ChatRequest.builder();
-
-        if (options != null) {
-            if (options.containsKey("temperature")) {
-                builder.temperature(((Number)options.get("temperature")).doubleValue());
-            }
-            if (options.containsKey("max_tokens")) {
-                builder.maxOutputTokens(((Number) options.get("max_tokens")).intValue());
-            }
-            if (options.containsKey("top_p")) {
-                builder.topP(((Number) options.get("top_p")).doubleValue());
-            }
-            if (options.containsKey("frequency_penalty")) {
-                builder.frequencyPenalty(((Number) options.get("frequency_penalty")).doubleValue());
-            }
-            // 可扩展更多参数
-        }
-        // 调用第三方大模型
-        ChatRequest chatRequest = builder.messages(messages).build();
+        ChatRequest chatRequest = buildChatRequestFromOptions(messages, request.getOptions());
         ChatResponse response = executeChatRequest(chatModel, chatRequest, modelConfig);
 
         if (response == null || response.aiMessage() == null) {
@@ -272,24 +238,11 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
         ModelUsageContext.set(modelConfig.getId(), modelConfig.getModelIdentifier());
         OpenAiChatModel chatModel = buildChatLanguageModel(modelConfig, null);
 
-        if (persistHistory && !StringUtils.hasText(conversationId)) {
-            conversationId = conversationService.ensureConversation(userId, accessKeyId, null, extractLastUserMessage(request)).getConversationId();
-        } else if (persistHistory) {
-            conversationService.ensureConversation(userId, accessKeyId, conversationId, extractLastUserMessage(request));
-        }
+        conversationId = ensureConversationIfNeeded(persistHistory, conversationId, userId, accessKeyId, extractLastUserMessage(request));
 
         List<ChatMessage> messages = new ArrayList<>();
         if (persistHistory) {
-            List<ConversationMessageDto> tailMessages = conversationService.getRecentTail(conversationId, userId, 10).messages();
-            for (ConversationMessageDto msg : tailMessages) {
-                if ("user".equals(msg.getRole())) {
-                    messages.add(UserMessage.from(msg.getContent()));
-                } else if ("assistant".equals(msg.getRole())) {
-                    messages.add(AiMessage.from(msg.getContent()));
-                } else if ("system".equals(msg.getRole())) {
-                    messages.add(SystemMessage.from(msg.getContent()));
-                }
-            }
+            appendTailMessages(messages, conversationId, userId);
         }
         messages.addAll(convertOpenAiMessages(request));
         ChatRequest chatRequest = buildChatRequest(request, messages, modelConfig.getModelIdentifier());
@@ -344,24 +297,11 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
                 log.info("v2/chat/stream 使用模型: {} (ID: {}), 所需能力: {}", modelConfig.getDisplayName(), modelConfig.getModelIdentifier(), requiredCapability);
                 ModelUsageContext.set(modelConfig.getId(), modelConfig.getModelIdentifier());
                 OpenAiStreamingChatModel streamingModel = buildStreamingChatLanguageModel(modelConfig);
-                if (persistHistory && !StringUtils.hasText(conversationId[0])) {
-                    conversationId[0] = conversationService.ensureConversation(userId, accessKeyId, null, extractLastUserMessage(request)).getConversationId();
-                } else if (persistHistory) {
-                    conversationService.ensureConversation(userId, accessKeyId, conversationId[0], extractLastUserMessage(request));
-                }
+                conversationId[0] = ensureConversationIfNeeded(persistHistory, conversationId[0], userId, accessKeyId, extractLastUserMessage(request));
 
                 List<ChatMessage> messages = new ArrayList<>();
                 if (persistHistory) {
-                    List<ConversationMessageDto> tailMessages = conversationService.getRecentTail(conversationId[0], userId, 10).messages();
-                    for (ConversationMessageDto msg : tailMessages) {
-                        if ("user".equals(msg.getRole())) {
-                            messages.add(UserMessage.from(msg.getContent()));
-                        } else if ("assistant".equals(msg.getRole())) {
-                            messages.add(AiMessage.from(msg.getContent()));
-                        } else if ("system".equals(msg.getRole())) {
-                            messages.add(SystemMessage.from(msg.getContent()));
-                        }
-                    }
+                    appendTailMessages(messages, conversationId[0], userId);
                 }
                 messages.addAll(convertOpenAiMessages(request));
                 ChatRequest chatRequest = buildChatRequest(request, messages, modelConfig.getModelIdentifier());
@@ -492,6 +432,52 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
         Map<String,Object> pricing = modelConfig.getPricing();
         BigDecimal imgPrice = new BigDecimal(pricing.get("output").toString());
         return imgPrice.multiply(new BigDecimal(imgCount)).negate();
+    }
+
+    private String ensureConversationIfNeeded(boolean persistHistory, String conversationId, Integer userId, Integer accessKeyId, String seedMessage) {
+        if (!persistHistory) {
+            return conversationId;
+        }
+        if (!StringUtils.hasText(conversationId)) {
+            return conversationService.ensureConversation(userId, accessKeyId, null, seedMessage).getConversationId();
+        }
+        conversationService.ensureConversation(userId, accessKeyId, conversationId, seedMessage);
+        return conversationId;
+    }
+
+    private void appendTailMessages(List<ChatMessage> messages, String conversationId, Integer userId) {
+        if (!StringUtils.hasText(conversationId)) {
+            return;
+        }
+        List<ConversationMessageDto> tailMessages = conversationService.getRecentTail(conversationId, userId, 10).messages();
+        for (ConversationMessageDto msg : tailMessages) {
+            if ("user".equals(msg.getRole())) {
+                messages.add(UserMessage.from(msg.getContent()));
+            } else if ("assistant".equals(msg.getRole())) {
+                messages.add(AiMessage.from(msg.getContent()));
+            } else if ("system".equals(msg.getRole())) {
+                messages.add(SystemMessage.from(msg.getContent()));
+            }
+        }
+    }
+
+    private ChatRequest buildChatRequestFromOptions(List<ChatMessage> messages, Map<String, Object> options) {
+        ChatRequest.Builder builder = ChatRequest.builder();
+        if (options != null) {
+            if (options.containsKey("temperature")) {
+                builder.temperature(((Number) options.get("temperature")).doubleValue());
+            }
+            if (options.containsKey("max_tokens")) {
+                builder.maxOutputTokens(((Number) options.get("max_tokens")).intValue());
+            }
+            if (options.containsKey("top_p")) {
+                builder.topP(((Number) options.get("top_p")).doubleValue());
+            }
+            if (options.containsKey("frequency_penalty")) {
+                builder.frequencyPenalty(((Number) options.get("frequency_penalty")).doubleValue());
+            }
+        }
+        return builder.messages(messages).build();
     }
 
     private LlmModel selectModel(Integer internalId, String identifier, String requiredCapability) {
