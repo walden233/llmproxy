@@ -8,7 +8,9 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -38,6 +40,10 @@ public class KeySelectionService {
      * @return 选中的 ProviderKey
      */
     public ProviderKey selectAvailableKey(Integer providerId) {
+        return selectAvailableKey(providerId, null);
+    }
+
+    public ProviderKey selectAvailableKey(Integer providerId, Set<Integer> excludedKeyIds) {
         // 1. 从数据库获取所有“活跃”的 Key
         List<ProviderKey> activeKeys = providerKeyMapper.selectList(
                 new LambdaQueryWrapper<ProviderKey>()
@@ -61,6 +67,9 @@ public class KeySelectionService {
             // (startIndex + i) 确保我们从当前计数器位置开始，并向后尝试所有 key
             int index = (int) ((startIndex + i) % activeKeys.size());
             ProviderKey candidateKey = activeKeys.get(index);
+            if (!CollectionUtils.isEmpty(excludedKeyIds) && excludedKeyIds.contains(candidateKey.getId())) {
+                continue;
+            }
 
             // 5. 检查该 Key 是否处于“熔断”状态
             // key 示例: "llm:key:circuit:123" (123 = providerKeyId)
@@ -74,6 +83,26 @@ public class KeySelectionService {
 
         // 7. 如果循环走完，说明所有“活跃”的 Key 当前都处于“熔断”状态
         throw new BusinessException(ResultCode.OPERATION_FAILED, "提供商 (ID: " + providerId + ") 所有 Key 均处于临时熔断状态，请稍后重试");
+    }
+
+    public KeyAvailability getKeyAvailability(Integer providerId) {
+        List<ProviderKey> activeKeys = providerKeyMapper.selectList(
+                new LambdaQueryWrapper<ProviderKey>()
+                        .eq(ProviderKey::getProviderId, providerId)
+                        .eq(ProviderKey::getStatus, ProviderKey.STATUS_ACTIVE)
+        );
+        int totalActive = activeKeys.size();
+        if (totalActive == 0) {
+            return new KeyAvailability(0, 0, 0D);
+        }
+        int available = 0;
+        for (ProviderKey key : activeKeys) {
+            String circuitKey = CIRCUIT_KEY_PREFIX + key.getId();
+            if (!Boolean.TRUE.equals(stringRedisTemplate.hasKey(circuitKey))) {
+                available++;
+            }
+        }
+        return new KeyAvailability(totalActive, available, available * 1.0D / totalActive);
     }
 
     /**
@@ -93,6 +122,30 @@ public class KeySelectionService {
                 timeoutSeconds,
                 TimeUnit.SECONDS
         );
+    }
+
+    public static class KeyAvailability {
+        private final int totalActive;
+        private final int available;
+        private final double availableRatio;
+
+        public KeyAvailability(int totalActive, int available, double availableRatio) {
+            this.totalActive = totalActive;
+            this.available = available;
+            this.availableRatio = availableRatio;
+        }
+
+        public int getTotalActive() {
+            return totalActive;
+        }
+
+        public int getAvailable() {
+            return available;
+        }
+
+        public double getAvailableRatio() {
+            return availableRatio;
+        }
     }
 
 }

@@ -19,6 +19,8 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.context.ApplicationContext;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -49,6 +51,8 @@ public class UserServiceImpl implements IUserService {
     private ApplicationContext applicationContext;
     @Autowired
     private JwtTokenUtil jwtTokenUtil;
+    @Autowired
+    private CacheManager cacheManager;
 
     private AuthenticationManager getAuthenticationManager() {
         return applicationContext.getBean(AuthenticationManager.class);
@@ -147,12 +151,14 @@ public class UserServiceImpl implements IUserService {
     @Transactional
     public void changePassword(UserChangePasswordRequest request) {
         User currentUser = getCurrentUser();
+        String username = currentUser.getUsername();
         if (!getPasswordEncoder().matches(request.getOldPassword(), currentUser.getPasswordHash())) {
             throw new BadCredentialsException("旧密码不正确");
         }
         currentUser.setPasswordHash(getPasswordEncoder().encode(request.getNewPassword()));
         currentUser.setUpdatedAt(LocalDateTime.now());
         userMapper.updateById(currentUser);
+        evictUserCache(username);
     }
 
 
@@ -170,9 +176,24 @@ public class UserServiceImpl implements IUserService {
 
     @Override
     public void creditUserBalance(Integer userId, BigDecimal amount) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException(ResultCode.DATA_NOT_FOUND, "用户不存在");
+        }
         int updated = userMapper.updateBalance(userId, amount);
         if (updated == 0) {
             throw new BusinessException(ResultCode.OPERATION_FAILED, "Failed to update balance due to concurrency conflict.");
+        }
+        evictUserCache(user.getUsername());
+    }
+
+    private void evictUserCache(String username) {
+        if (username == null) {
+            return;
+        }
+        Cache cache = cacheManager.getCache("users");
+        if (cache != null) {
+            cache.evict(username);
         }
     }
     @Override

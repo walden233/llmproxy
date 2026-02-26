@@ -53,7 +53,7 @@ mybatis-plus:
       # logic-not-delete-value: 0 # ??????????
   configuration:
     map-underscore-to-camel-case: true # ????????
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl # ??SQL
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl # ??SQL (??SLF4J??)
 
 # JWT ??
 jwt:
@@ -66,3 +66,4 @@ logging:
   level:
     com.example.llmproxy: debug # ???????
     org.springframework.security: debug # ?? Spring Security ??
+    cn.tyt.llmproxy.mapper.AsyncTaskOutboxMapper: OFF

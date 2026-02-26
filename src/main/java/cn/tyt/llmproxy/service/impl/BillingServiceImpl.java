@@ -8,6 +8,8 @@ import cn.tyt.llmproxy.mapper.UserMapper;
 import cn.tyt.llmproxy.service.IBillingService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +24,7 @@ public class BillingServiceImpl implements IBillingService {
 
     private final BillingLedgerMapper billingLedgerMapper;
     private final UserMapper userMapper;
+    private final CacheManager cacheManager;
 
     @Override
     @Transactional
@@ -69,6 +72,7 @@ public class BillingServiceImpl implements IBillingService {
         if (updated == 0) {
             throw new BusinessException(ResultCode.OPERATION_FAILED, "insufficient balance or concurrent update");
         }
+        evictUserCache(userId);
         ledger.setStatus(BillingLedger.STATUS_SETTLED);
         ledger.setUpdatedAt(LocalDateTime.now());
         int updatedRows = billingLedgerMapper.updateById(ledger);
@@ -88,5 +92,20 @@ public class BillingServiceImpl implements IBillingService {
         return billingLedgerMapper.selectOne(
                 new LambdaQueryWrapper<BillingLedger>().eq(BillingLedger::getRequestId, requestId)
         );
+    }
+
+    private void evictUserCache(Integer userId) {
+        if (userId == null) {
+            return;
+        }
+        var user = userMapper.selectById(userId);
+        String username = user == null ? null : user.getUsername();
+        if (username == null) {
+            return;
+        }
+        Cache cache = cacheManager.getCache("users");
+        if (cache != null) {
+            cache.evict(username);
+        }
     }
 }

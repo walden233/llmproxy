@@ -87,6 +87,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class LangchainProxyServiceImpl implements ILangchainProxyService {
 
     private static final Logger log = LoggerFactory.getLogger(LangchainProxyServiceImpl.class);
+    private static final int MAX_REQUEST_RETRIES = 2;
 
     @Autowired
     private LlmModelMapper llmModelMapper;
@@ -94,6 +95,8 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
     private ProviderMapper providerMapper;
     @Autowired
     private KeySelectionService keySelectionService; // 注入新服务
+    @Autowired
+    private ModelWindowMetricsService modelWindowMetricsService;
     @Autowired
     private IBillingService billingService;
     @Autowired
@@ -121,11 +124,6 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
         final String requiredCapability = (request.getImages() != null && !request.getImages().isEmpty())
                 ? ModelCapabilityEnum.IMAGE_TO_TEXT.getValue()
                 : ModelCapabilityEnum.TEXT_TO_TEXT.getValue();
-        LlmModel selectedModel = selectModel(request.getModelInternalId(), request.getModelIdentifier(), requiredCapability);
-        LlmModelConfigDto modelConfig = buildModelConfig(selectedModel);
-        log.info("使用模型进行聊天: {} (ID: {}), 所需能力: {}", modelConfig.getDisplayName(), modelConfig.getModelIdentifier(), requiredCapability);
-        ModelUsageContext.set(modelConfig.getId(), modelConfig.getModelIdentifier());
-        OpenAiChatModel chatModel = buildChatLanguageModel(modelConfig, request.getOptions());
         List<ChatMessage> messages = new ArrayList<>();
 
         conversationId = ensureConversationIfNeeded(persistHistory, conversationId, userId, accessKeyId, request.getUserMessage());
@@ -187,7 +185,17 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
         messages.add(currentUserMessage);
 
         ChatRequest chatRequest = buildChatRequestFromOptions(messages, request.getOptions());
-        ChatResponse response = executeChatRequest(chatModel, chatRequest, modelConfig);
+        RoutingExecution<ChatResponse> execution = executeChatWithRouting(
+                request.getModelInternalId(),
+                request.getModelIdentifier(),
+                requiredCapability,
+                request.getOptions(),
+                chatRequest
+        );
+        LlmModelConfigDto modelConfig = execution.modelConfig();
+        ChatResponse response = execution.response();
+        log.info("使用模型进行聊天: {} (ID: {}), 所需能力: {}", modelConfig.getDisplayName(), modelConfig.getModelIdentifier(), requiredCapability);
+        ModelUsageContext.set(modelConfig.getId(), modelConfig.getModelIdentifier());
 
         if (response == null || response.aiMessage() == null) {
             throw new BusinessException(ResultCode.MODEL_INFERENCE_ERROR, "模型未能生成响应。");
@@ -237,11 +245,6 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
         final String requiredCapability = containsImageInput
                 ? ModelCapabilityEnum.IMAGE_TO_TEXT.getValue()
                 : ModelCapabilityEnum.TEXT_TO_TEXT.getValue();
-        LlmModel selectedModel = selectModel(null, request.getModel(), requiredCapability);
-        LlmModelConfigDto modelConfig = buildModelConfig(selectedModel);
-        log.info("v2/chat 使用模型: {} (ID: {}), 所需能力: {}", modelConfig.getDisplayName(), modelConfig.getModelIdentifier(), requiredCapability);
-        ModelUsageContext.set(modelConfig.getId(), modelConfig.getModelIdentifier());
-        OpenAiChatModel chatModel = buildChatLanguageModel(modelConfig, null);
 
         conversationId = ensureConversationIfNeeded(persistHistory, conversationId, userId, accessKeyId, extractLastUserMessage(request));
 
@@ -250,8 +253,17 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
             appendTailMessages(messages, conversationId, userId);
         }
         messages.addAll(convertOpenAiMessages(request));
-        ChatRequest chatRequest = buildChatRequest(request, messages, modelConfig.getModelIdentifier());
-        ChatResponse response = executeChatRequest(chatModel, chatRequest, modelConfig);
+        RoutingExecution<ChatResponse> execution = executeChatWithRouting(
+                null,
+                request.getModel(),
+                requiredCapability,
+                null,
+                modelConfig -> buildChatRequest(request, messages, modelConfig.getModelIdentifier())
+        );
+        LlmModelConfigDto modelConfig = execution.modelConfig();
+        ChatResponse response = execution.response();
+        log.info("v2/chat 使用模型: {} (ID: {}), 所需能力: {}", modelConfig.getDisplayName(), modelConfig.getModelIdentifier(), requiredCapability);
+        ModelUsageContext.set(modelConfig.getId(), modelConfig.getModelIdentifier());
 
         if (response == null || response.aiMessage() == null) {
             throw new BusinessException(ResultCode.MODEL_INFERENCE_ERROR, "模型未能生成响应。");
@@ -371,13 +383,16 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
                                 sendStreamDone(emitter);
                                 emitter.complete();
                             }
+                            modelWindowMetricsService.recordRequest(modelConfig.getId(), true);
                         } catch (Exception e) {
+                            modelWindowMetricsService.recordRequest(modelConfig.getId(), false);
                             handleStreamError(emitter, e);
                         }
                     }
 
                     @Override
                     public void onError(Throwable error) {
+                        modelWindowMetricsService.recordRequest(modelConfig.getId(), false);
                         handleStreamError(emitter, error);
                     }
                 };
@@ -385,9 +400,11 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
                     streamingModel.doChat(chatRequest, handler);
                 } catch (AuthenticationException e) {
                     providerService.updateKeyStatus(modelConfig.getProviderKeyId(), false);
+                    modelWindowMetricsService.recordRequest(modelConfig.getId(), false);
                     throw e;
                 } catch (RateLimitException e) {
                     keySelectionService.reportKeyFailure(modelConfig.getProviderKeyId(), 5 * 60);
+                    modelWindowMetricsService.recordRequest(modelConfig.getId(), false);
                     throw e;
                 }
             } catch (Throwable t) {
@@ -423,16 +440,54 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
                 ? ModelCapabilityEnum.IMAGE_TO_IMAGE.getValue()
                 : ModelCapabilityEnum.TEXT_TO_IMAGE.getValue();
         String requestId = resolveRequestId(request.getRequestId(), accessKeyId, "image", null);
-        LlmModel selectedModel = selectModel(request.getModelInternalId(), request.getModelIdentifier(), requiredCapability);
-        LlmModelConfigDto modelConfig = buildModelConfig(selectedModel);
-        log.info("使用模型生成图像: {} (ID: {})", modelConfig.getDisplayName(), modelConfig.getModelIdentifier());
+        List<LlmModel> candidates = selectModelCandidates(request.getModelInternalId(), request.getModelIdentifier(), requiredCapability);
+        Throwable lastError = null;
+        Set<Integer> excludedKeyIds = new HashSet<>();
+        int maxAttempts = MAX_REQUEST_RETRIES + 1;
+
+        LlmModelConfigDto modelConfig = null;
+        ImageGenerationResponse result = null;
+        for (int attempt = 0; attempt < maxAttempts; attempt++) {
+            LlmModel selectedModel = candidates.get(attempt % candidates.size());
+            try {
+                modelConfig = buildModelConfig(selectedModel, excludedKeyIds);
+                log.info("使用模型生成图像: {} (ID: {}) attempt={}/{}", modelConfig.getDisplayName(),
+                        modelConfig.getModelIdentifier(), attempt + 1, maxAttempts);
+                ImageGeneratorService generator = ImageGeneratorFactory.createGenerator(modelConfig);
+                result = requiredCapability.equals(ModelCapabilityEnum.TEXT_TO_IMAGE.getValue())
+                        ? generator.generateImage(request)
+                        : generator.editImage(request);
+                modelWindowMetricsService.recordRequest(modelConfig.getId(), true);
+                break;
+            } catch (AuthenticationException e) {
+                if (modelConfig != null) {
+                    excludedKeyIds.add(modelConfig.getProviderKeyId());
+                    providerService.updateKeyStatus(modelConfig.getProviderKeyId(), false);
+                    modelWindowMetricsService.recordRequest(modelConfig.getId(), false);
+                }
+                lastError = e;
+            } catch (RateLimitException e) {
+                if (modelConfig != null) {
+                    excludedKeyIds.add(modelConfig.getProviderKeyId());
+                    keySelectionService.reportKeyFailure(modelConfig.getProviderKeyId(), 5 * 60);
+                    modelWindowMetricsService.recordRequest(modelConfig.getId(), false);
+                }
+                lastError = e;
+            } catch (Throwable e) {
+                if (modelConfig != null) {
+                    excludedKeyIds.add(modelConfig.getProviderKeyId());
+                    modelWindowMetricsService.recordRequest(modelConfig.getId(), false);
+                }
+                lastError = e;
+            }
+        }
+        if (result == null || modelConfig == null) {
+            if (lastError instanceof RuntimeException runtimeException) {
+                throw runtimeException;
+            }
+            throw new BusinessException(ResultCode.UPSTREAM_SERVICE_ERROR, "图像生成在重试后仍失败");
+        }
         ModelUsageContext.set(modelConfig.getId(), modelConfig.getModelIdentifier());
-        ImageGenerationResponse result;
-        ImageGeneratorService generator = ImageGeneratorFactory.createGenerator(modelConfig);
-        if(requiredCapability.equals(ModelCapabilityEnum.TEXT_TO_IMAGE.getValue()))
-            result = generator.generateImage(request);
-        else
-            result = generator.editImage(request);
         BigDecimal cost = calculateImagePrice(result,modelConfig);
         billingService.charge(requestId, userId, accessKeyId, modelConfig.getId(),
                 null, null, result.getImageUrls().size(), cost, BillingLedger.BIZ_IMAGE);
@@ -519,6 +574,11 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
     }
 
     private LlmModel selectModel(Integer internalId, String identifier, String requiredCapability) {
+        List<LlmModel> candidates = selectModelCandidates(internalId, identifier, requiredCapability);
+        return candidates.get(0);
+    }
+
+    private List<LlmModel> selectModelCandidates(Integer internalId, String identifier, String requiredCapability) {
         Optional<LlmModel> modelOpt = Optional.empty();
         if (internalId!=null) {
             try {
@@ -540,7 +600,7 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
             if (!model.getCapabilities().contains(requiredCapability)) {
                 throw new BusinessException(ResultCode.MODEL_CONFIG_ERROR, "模型 " + model.getDisplayName() + " 不支持 " + requiredCapability + " 功能。");
             }
-            return model;
+            return Collections.singletonList(model);
         } else {
             // 如果没有指定模型，则按优先级和能力选择
             List<LlmModel> availableModels = llmModelMapper.selectList(
@@ -552,16 +612,20 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
             if (availableModels.isEmpty()) {
                 throw new BusinessException(ResultCode.MODEL_NOT_FOUND, "没有找到支持 " + requiredCapability + " 功能的可用模型。");
             }
-            return availableModels.get(0); // 选择优先级最高的
+            return rankModelsBySmartScore(availableModels);
         }
     }
 
     private LlmModelConfigDto buildModelConfig(LlmModel model) {
+        return buildModelConfig(model, null);
+    }
+
+    private LlmModelConfigDto buildModelConfig(LlmModel model, Set<Integer> excludedKeyIds) {
         Provider provider = providerMapper.selectById(model.getProviderId());
         if (provider == null)
             throw new BusinessException(ResultCode.DATA_NOT_FOUND, "没有找到" + model.getModelIdentifier() + " 的提供商");
 
-        ProviderKey providerKey = keySelectionService.selectAvailableKey(provider.getId());
+        ProviderKey providerKey = keySelectionService.selectAvailableKey(provider.getId(), excludedKeyIds);
 
         LlmModelConfigDto modelConfig = new LlmModelConfigDto();
         BeanUtils.copyProperties(model, modelConfig);
@@ -570,6 +634,90 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
         modelConfig.setApiKey(providerKey.getApiKey());
         modelConfig.setProviderKeyId(providerKey.getId());
         return modelConfig;
+    }
+
+    private List<LlmModel> rankModelsBySmartScore(List<LlmModel> models) {
+        if (models.size() <= 1) {
+            return models;
+        }
+        int minPriority = models.stream().map(LlmModel::getPriority).filter(Objects::nonNull).min(Integer::compareTo).orElse(0);
+        int maxPriority = models.stream().map(LlmModel::getPriority).filter(Objects::nonNull).max(Integer::compareTo).orElse(minPriority);
+        int maxAvailableKeys = models.stream()
+                .map(model -> keySelectionService.getKeyAvailability(model.getProviderId()).getAvailable())
+                .max(Integer::compareTo).orElse(1);
+
+        Map<Integer, ModelWindowMetricsService.WindowStats> windowStats = new HashMap<>();
+        for (LlmModel model : models) {
+            windowStats.put(model.getId(), modelWindowMetricsService.getWindowStats(model.getId()));
+        }
+
+        List<LlmModel> ranked = new ArrayList<>(models);
+        ranked.sort((a, b) -> Double.compare(
+                computeModelScore(b, minPriority, maxPriority, maxAvailableKeys, windowStats.get(b.getId())),
+                computeModelScore(a, minPriority, maxPriority, maxAvailableKeys, windowStats.get(a.getId()))
+        ));
+        return ranked;
+    }
+
+    private double computeModelScore(LlmModel model, int minPriority, int maxPriority, int maxAvailableKeys,
+                                     ModelWindowMetricsService.WindowStats windowStats) {
+        KeySelectionService.KeyAvailability availability = keySelectionService.getKeyAvailability(model.getProviderId());
+
+        double priorityScore;
+        if (maxPriority == minPriority) {
+            priorityScore = 1D;
+        } else {
+            int modelPriority = model.getPriority() == null ? maxPriority : model.getPriority();
+            priorityScore = 1D - (modelPriority - minPriority) * 1.0D / (maxPriority - minPriority);
+        }
+
+        double keyCountScore = maxAvailableKeys <= 0 ? 0D : availability.getAvailable() * 1.0D / maxAvailableKeys;
+        double keyRatioScore = availability.getAvailableRatio();
+        double failureScore = 1D - Math.min(1D, windowStats == null ? 0D : windowStats.getFailureRate());
+        return priorityScore * 0.40D + keyCountScore * 0.20D + keyRatioScore * 0.20D + failureScore * 0.20D;
+    }
+
+    private RoutingExecution<ChatResponse> executeChatWithRouting(Integer internalId, String identifier,
+                                                                  String requiredCapability, Map<String, Object> options,
+                                                                  ChatRequest fixedRequest) {
+        return executeChatWithRouting(internalId, identifier, requiredCapability, options, modelConfig -> fixedRequest);
+    }
+
+    private RoutingExecution<ChatResponse> executeChatWithRouting(Integer internalId, String identifier,
+                                                                  String requiredCapability, Map<String, Object> options,
+                                                                  ChatRequestBuilder requestBuilder) {
+        List<LlmModel> candidates = selectModelCandidates(internalId, identifier, requiredCapability);
+        Throwable lastError = null;
+        Set<Integer> excludedKeyIds = new HashSet<>();
+        int maxAttempts = MAX_REQUEST_RETRIES + 1;
+
+        for (int attempt = 0; attempt < maxAttempts; attempt++) {
+            LlmModel selectedModel = candidates.get(attempt % candidates.size());
+            LlmModelConfigDto modelConfig;
+            try {
+                modelConfig = buildModelConfig(selectedModel, excludedKeyIds);
+            } catch (BusinessException e) {
+                lastError = e;
+                continue;
+            }
+            OpenAiChatModel chatModel = buildChatLanguageModel(modelConfig, options);
+            ChatRequest chatRequest = requestBuilder.build(modelConfig);
+            try {
+                ChatResponse response = executeChatRequest(chatModel, chatRequest, modelConfig);
+                modelWindowMetricsService.recordRequest(modelConfig.getId(), true);
+                return new RoutingExecution<>(modelConfig, response);
+            } catch (Throwable ex) {
+                excludedKeyIds.add(modelConfig.getProviderKeyId());
+                modelWindowMetricsService.recordRequest(modelConfig.getId(), false);
+                lastError = ex;
+                log.warn("路由重试 attempt={}/{} model={} keyId={} error={}",
+                        attempt + 1, maxAttempts, modelConfig.getModelIdentifier(), modelConfig.getProviderKeyId(), ex.getClass().getSimpleName());
+            }
+        }
+        if (lastError instanceof RuntimeException runtimeException) {
+            throw runtimeException;
+        }
+        throw new BusinessException(ResultCode.UPSTREAM_SERVICE_ERROR, "模型路由重试后仍失败");
     }
 
     /**
@@ -635,7 +783,6 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
         }
         return builder.build();
     }
-
     private ChatResponse executeChatRequest(OpenAiChatModel chatModel, ChatRequest chatRequest, LlmModelConfigDto modelConfig) {
         try {
             return chatModel.chat(chatRequest);
@@ -646,6 +793,13 @@ public class LangchainProxyServiceImpl implements ILangchainProxyService {
             keySelectionService.reportKeyFailure(modelConfig.getProviderKeyId(), 5 * 60);
             throw e;
         }
+    }
+
+    private record RoutingExecution<T>(LlmModelConfigDto modelConfig, T response) {}
+
+    @FunctionalInterface
+    private interface ChatRequestBuilder {
+        ChatRequest build(LlmModelConfigDto modelConfig);
     }
 
     private void validateOpenAiRequest(OpenAiChatRequest request, boolean streaming) {

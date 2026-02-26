@@ -65,6 +65,7 @@ public class RabbitMQConfig {
     public static final String ASYNC_CHAT_DLX_ROUTING_KEY = "async.chat.dlx";
     public static final String ASYNC_IMAGE_DLX_ROUTING_KEY = "async.image.dlx";
 
+    //异步写mongodb
     public static final String STATS_EXCHANGE = "stats.exchange";
     public static final String STATS_QUEUE = "stats.usage.queue";
     public static final String STATS_ROUTING_KEY = "stats.usage";
@@ -256,6 +257,7 @@ public class RabbitMQConfig {
         return BindingBuilder.bind(asyncImageDlq()).to(asyncTaskDlxExchange()).with(ASYNC_IMAGE_DLX_ROUTING_KEY);
     }
 
+    //消费者端配置
     @Bean
     public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(ConnectionFactory connectionFactory,
                                                                                MessageConverter messageConverter) {
@@ -268,6 +270,7 @@ public class RabbitMQConfig {
         return factory;
     }
 
+    //生产者端配置
     @Bean
     public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory, MessageConverter messageConverter) {
         RabbitTemplate template = new RabbitTemplate(connectionFactory);

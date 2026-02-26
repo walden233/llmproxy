@@ -25,7 +25,7 @@ public class OpenAiChatRequest {
     /**
      * Aligns to OpenAI's model field; mapped to LlmModel.modelIdentifier.
      */
-    @NotBlank
+//    @NotBlank
     private String model;
 
     @NotEmpty

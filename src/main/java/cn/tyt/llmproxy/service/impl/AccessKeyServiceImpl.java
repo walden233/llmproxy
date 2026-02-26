@@ -64,17 +64,13 @@ public class AccessKeyServiceImpl implements IAccessKeyService {
         User user = userMapper.selectById(accessKey.getUserId());
         return user.getBalance().doubleValue() > 0;
     }
-    //在这添加缓存
-//    @Cacheable(value = "access-key", key = "#keyValue")
-//    public AccessKey getAccessKey(String keyValue){
-//        QueryWrapper<AccessKey> queryWrapper = new QueryWrapper<>();
-//        queryWrapper.eq("key_value", keyValue).eq("is_active", 1);
-//        return accessKeyMapper.selectOne(queryWrapper);
-//    }
+
+
     @Override
     public AccessKeyInfo getAccessKeyInfo(String keyValue){
         AccessKeyInfo keyInfo = new AccessKeyInfo();
         keyInfo.setKeyValue(keyValue);
+        //这有缓存
         AccessKey accessKey = accessKeyRepository.findActiveKey(keyValue);
         if(accessKey==null){
             keyInfo.setValid(false);
